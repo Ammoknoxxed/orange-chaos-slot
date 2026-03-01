@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval';">
     <title>Chaos Orange | The Juicer Slot</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@700&display=swap');
@@ -148,10 +149,12 @@
 
     <div class="controls">
         <div id="msg-board">READY TO GRIND</div>
-        <button class="spin-btn" id="spin-btn" onclick="startSpin()">SPIN (1€)</button>
+        <button class="spin-btn" id="spin-btn">SPIN (1€)</button>
     </div>
 
     <script>
+        console.log("Slot Engine geladen! Warte auf Spin...");
+
         const gridElement = document.getElementById('slot-grid');
         const spinBtn = document.getElementById('spin-btn');
         const msgBoard = document.getElementById('msg-board');
@@ -176,13 +179,16 @@
         }
         initGrid();
 
-        async function startSpin() {
+        // Event Listener anstatt "onclick" (Macht den CSP glücklich)
+        spinBtn.addEventListener('click', async function startSpin() {
+            console.log("Spin-Button wurde geklickt!");
             if (isSpinning) return;
             isSpinning = true;
             spinBtn.disabled = true;
             msgBoard.innerText = "SPINNING...";
             msgBoard.style.color = "#fff";
 
+            // Optik: Alles dreht sich
             document.querySelectorAll('.cell').forEach(cell => {
                 cell.classList.remove('juicer-active');
                 cell.classList.add('spinning');
@@ -190,8 +196,14 @@
             });
 
             try {
-                const response = await fetch('/api/spin', { method: 'POST' });
+                console.log("Sende Anfrage an Server...");
+                const response = await fetch('/api/spin', { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
                 const result = await response.json();
+                console.log("Antwort vom Server:", result);
 
                 if (result.error) {
                     msgBoard.innerText = result.error;
@@ -201,9 +213,10 @@
                     return;
                 }
 
-                // Balance updaten (ohne Gewinn)
-                balanceDisplay.innerText = (parseFloat(balanceDisplay.innerText) - 1).toFixed(2);
+                // Balance updaten
+                balanceDisplay.innerText = result.newBalance.toFixed(2);
 
+                // Walzen stoppen (von links nach rechts)
                 for (let col = 0; col < cols; col++) {
                     await new Promise(r => setTimeout(r, 200)); 
                     for (let row = 0; row < rows; row++) {
@@ -216,11 +229,12 @@
                 await handleWinAnimations(result);
 
             } catch (err) {
+                console.error("KRITISCHER FEHLER:", err);
                 msgBoard.innerText = "SERVER ERROR!";
                 isSpinning = false;
                 spinBtn.disabled = false;
             }
-        }
+        });
 
         async function handleWinAnimations(result) {
             if (result.scatters >= 3) {
@@ -245,9 +259,13 @@
             if (result.win > 0) {
                 msgBoard.innerText = `BIG WIN: ${result.win.toFixed(2)} €!`;
                 msgBoard.style.color = "#0f0";
-                balanceDisplay.innerText = result.newBalance.toFixed(2); 
             } else {
                 if (result.scatters < 3) msgBoard.innerText = "DEAD SPIN.";
             }
 
-            isSpin
+            isSpinning = false;
+            spinBtn.disabled = false;
+        }
+    </script>
+</body>
+</html>
