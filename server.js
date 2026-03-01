@@ -37,7 +37,8 @@ const symbols = [
     { icon: ' J', name: 'JACK',   weight: 70, pays: [0, 0, 0, 0.4, 1, 3] },
     { icon: '10', name: 'TEN',    weight: 80, pays: [0, 0, 0, 0.2, 0.5, 2] },
     { icon: '🌪️', name: 'JUICER', weight: 7,  pays: [0, 0, 0, 0, 0, 0], isWild: true },
-    { icon: '🌟', name: 'SCATTER',weight: 3,  pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
+    // DEV CHEAT: Scatter Weight auf 150 gesetzt, damit du die Freispiele sofort siehst!
+    { icon: '🌟', name: 'SCATTER',weight: 150, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
 ];
 
 const multipliers = [
@@ -72,24 +73,19 @@ function getRandomSymbol(isBonusGame = false) {
 // API ROUTEN
 // ==========================================
 
-// Dummy-User für den Anfang (bis wir dein echtes Login-System anbinden)
 let dummyBalance = 1000;
 
-// Die Hauptseite aufrufen
 app.get('/', (req, res) => {
-    // Hier übergeben wir die Balance an das Frontend
     res.render('slot', { user: { username: 'Streamer', balance: dummyBalance } });
 });
 
-// Der Endpunkt für den "SPIN" Button
 app.post('/api/spin', (req, res) => {
-    const betAmount = 1; // Fester Einsatz von 1€ für jetzt
+    const betAmount = 1; 
 
     if (dummyBalance < betAmount) {
         return res.json({ error: "NICHT GENUG BALANCE!" });
     }
 
-    // Einsatz abziehen
     dummyBalance -= betAmount;
 
     let grid = Array(5).fill(null).map(() => Array(5).fill(null));
@@ -105,7 +101,7 @@ app.post('/api/spin', (req, res) => {
 
     let totalWin = 0;
     let expandedJuicers = new Map();
-    let juicerDuels = []; // Speichern für das Frontend
+    let juicerDuels = []; 
 
     paylines.forEach((line) => {
         let matchCount = 0;
@@ -142,7 +138,6 @@ app.post('/api/spin', (req, res) => {
                         const winner = Math.random() > 0.5 ? m1 : m2;
                         expandedJuicers.set(col, winner);
                         
-                        // Ans Frontend schicken, damit es dort wackelt!
                         juicerDuels.push({ col: col, multi: winner }); 
                     }
                     totalMulti += expandedJuicers.get(col);
@@ -153,10 +148,8 @@ app.post('/api/spin', (req, res) => {
         }
     });
 
-    // Gewinn zur Balance hinzufügen
     dummyBalance += totalWin;
 
-    // Alles ans Frontend (Browser) zurückschicken
     res.json({
         grid: grid,
         win: totalWin,
@@ -166,7 +159,6 @@ app.post('/api/spin', (req, res) => {
     });
 });
 
-// Server starten
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`🎰 Chaos Orange Slot läuft auf Port ${PORT}`);
