@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;">
-    <title>Chaos Orange | The Juicer (High-End Edition)</title>
+    <title>Chaos Orange | The Juicer</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Russo+One&display=swap');
@@ -32,11 +32,7 @@
             overflow: hidden;
         }
 
-        .overlay-text {
-            position: absolute;
-            pointer-events: none; 
-            z-index: 100;
-        }
+        .overlay-text { position: absolute; pointer-events: none; z-index: 100; }
 
         .balance-box {
             top: 20px;
@@ -61,7 +57,6 @@
             transition: all 0.3s ease;
         }
 
-        /* HTML Spin Button Overlay */
         #spin-btn-html {
             position: absolute;
             bottom: 90px;
@@ -97,16 +92,12 @@
         const balanceDisplay = document.getElementById('balance-amount');
         const htmlSpinBtn = document.getElementById('spin-btn-html');
 
-        // ==========================================
-        // CONFIGURATION
-        // ==========================================
         const REEL_COUNT = 5;
         const ROW_COUNT = 5;
         const SYMBOL_SIZE = 110; 
         const REEL_OFFSET_X = 175; 
         const REEL_OFFSET_Y = 100; 
 
-        // Emojis für die Walzen!
         const symbolEmojis = {
             'ORANGE': '🍊', 'ROLEX': '⌚', 'BÜNDEL': '💵', 'ENERGY': '🥤', 'CAP': '🧢',
             'ACE': 'A', 'KING': 'K', 'QUEEN': 'Q', 'JACK': 'J', 'TEN': '10',
@@ -114,18 +105,15 @@
         };
         const allEmojis = Object.values(symbolEmojis);
 
-        // ==========================================
-        // PHASER 3 ENGINE
-        // ==========================================
+        // FREESPIN LOGIK
+        let freeSpinsLeft = 0;
+        let totalBonusWin = 0;
 
         class GameScene extends Phaser.Scene {
             constructor() { super('GameScene'); }
 
             create() {
-                // Roter Alarm-Hintergrund für Freispiele 
                 this.bonusBg = this.add.rectangle(450, 350, 900, 700, 0xff0000).setAlpha(0);
-
-                // Hintergrund Raster Box
                 this.add.rectangle(450, 320, 560, 560, 0x111111).setStrokeStyle(4, 0x333333);
 
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
@@ -141,7 +129,6 @@
                     this.reelsContainer.add(reelData.container);
                     
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        // Emojis als Text rendern
                         let sym = this.add.text(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), '🍊', { 
                             fontFamily: 'Arial', fontSize: '65px' 
                         }).setOrigin(0.5);
@@ -158,7 +145,6 @@
                     this.reels.push(reelData);
                 }
 
-                // Initiale Zufalls-Symbole
                 this.reels.forEach(reel => {
                     reel.symbols.forEach(s => s.textObj.setText(Phaser.Utils.Array.GetRandom(allEmojis)));
                 });
@@ -166,7 +152,6 @@
                 htmlSpinBtn.addEventListener('click', () => this.startSpin());
             }
 
-            // Fake-Spin Loop
             update() {
                 this.reels.forEach(reel => {
                     if (reel.isSpinning) {
@@ -187,10 +172,17 @@
 
             async startSpin() {
                 htmlSpinBtn.disabled = true;
-                msgBoard.innerText = "SPINNING...";
-                msgBoard.style.color = "#fff";
+                const isAutoFreeSpin = freeSpinsLeft > 0;
 
-                this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 });
+                if (isAutoFreeSpin) {
+                    msgBoard.innerText = `FREESPINS LEFT: ${freeSpinsLeft}`;
+                    msgBoard.style.color = "#ffdd00";
+                } else {
+                    msgBoard.innerText = "SPINNING...";
+                    msgBoard.style.color = "#fff";
+                    totalBonusWin = 0; // Reset für neues Basegame
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 });
+                }
 
                 this.reels.forEach(reel => { 
                     reel.isSpinning = true; 
@@ -198,18 +190,23 @@
                 });
 
                 try {
-                    const response = await fetch('/api/spin', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+                    // API Call: Sag dem Server, ob es ein Freespin ist!
+                    const response = await fetch('/api/spin', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ isFreeSpin: isAutoFreeSpin })
+                    });
                     const result = await response.json();
 
                     if (result.error) { msgBoard.innerText = result.error; htmlSpinBtn.disabled = false; return; }
                     balanceDisplay.innerText = result.newBalance.toFixed(2);
 
                     for (let c = 0; c < REEL_COUNT; c++) {
-                        await new Promise(res => setTimeout(res, 250)); 
+                        await new Promise(res => setTimeout(res, 200)); 
                         this.stopReel(c, result.grid);
                     }
 
-                    await this.handleWinAnimations(result);
+                    await this.handleWinAnimations(result, isAutoFreeSpin);
 
                 } catch (err) { console.error(err); htmlSpinBtn.disabled = false; }
             }
@@ -221,7 +218,6 @@
                 for(let r=0; r<ROW_COUNT; r++) {
                     const symName = gridData[r][colIdx].name;
                     const emoji = symbolEmojis[symName];
-                    
                     const s = reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y)[r+1]; 
                     
                     s.textObj.setText(emoji);
@@ -231,46 +227,33 @@
                     s.textObj.y = targetY - 40;
                     s.bgObj.y = targetY - 40;
                     
-                    this.tweens.add({
-                        targets: [s.textObj, s.bgObj],
-                        y: targetY,
-                        duration: 300,
-                        ease: 'Bounce.easeOut'
-                    });
+                    this.tweens.add({ targets: [s.textObj, s.bgObj], y: targetY, duration: 300, ease: 'Bounce.easeOut' });
                 }
             }
 
-            async handleWinAnimations(result) {
-                // 1. FREISPIEL ALARM! 🚨
-                if (result.scatters >= 3) {
+            async handleWinAnimations(result, wasFreeSpin) {
+                // NEUE SCATTERS GEFUNDEN (BASEGAME)
+                if (!wasFreeSpin && result.scatters >= 3) {
                     msgBoard.innerText = "🚨 THE BIG SQUEEZE 🚨";
                     msgBoard.style.color = "#ff0000";
-                    msgBoard.style.transform = "scale(1.2)";
+                    msgBoard.style.transform = "scale(1.3)";
                     
-                    this.tweens.add({
-                        targets: this.bonusBg,
-                        alpha: 0.3,
-                        yoyo: true,
-                        repeat: -1,
-                        duration: 500
-                    });
-
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0.3, yoyo: true, repeat: -1, duration: 500 });
                     this.cameras.main.shake(1000, 0.015); 
-                    await new Promise(res => setTimeout(res, 2000));
+                    
+                    await new Promise(res => setTimeout(res, 2500));
                     msgBoard.style.transform = "scale(1)";
+                    freeSpinsLeft = 10; // Freispiele aufladen!
                 }
 
-                // 2. JUICER DUELLE! 🌪️
+                // JUICER DUELLE
                 if (result.juicerDuels && result.juicerDuels.length > 0) {
                     for (let duel of result.juicerDuels) {
                         msgBoard.innerText = `VS DUEL...`;
                         msgBoard.style.color = "#ff8c00";
                         
                         this.reels[duel.col].symbols.forEach(s => {
-                            if (s.yPos >= 0 && s.yPos < 5) {
-                                s.bgObj.setFillStyle(0xff4500); 
-                                s.textObj.setText('🌪️');
-                            }
+                            if (s.yPos >= 0 && s.yPos < 5) { s.bgObj.setFillStyle(0xff4500); s.textObj.setText('🌪️'); }
                         });
                         
                         this.cameras.main.shake(500, 0.005);
@@ -278,38 +261,50 @@
                         
                         msgBoard.innerText = `🔥 ${duel.multi}x JUICER 🔥`;
                         msgBoard.style.color = "#ffdd00";
-                        msgBoard.style.transform = "scale(1.1)";
+                        msgBoard.style.transform = "scale(1.2)";
                         await new Promise(res => setTimeout(res, 1200));
                         msgBoard.style.transform = "scale(1)";
                     }
                 }
 
-                // 3. GEWINN ANZEIGE
+                // GEWINN BERECHNUNG
                 if (result.win > 0) {
-                    msgBoard.innerText = `BIG WIN: ${result.win.toFixed(2)} €!`;
+                    if (wasFreeSpin) totalBonusWin += result.win;
+                    msgBoard.innerText = `WIN: ${result.win.toFixed(2)} €!`;
                     msgBoard.style.color = "#00ff44";
-                    balanceDisplay.innerText = result.newBalance.toFixed(2); 
-                } else {
-                    if (result.scatters < 3) {
-                        msgBoard.innerText = "DEAD SPIN";
-                        msgBoard.style.color = "#555";
-                    }
+                    await new Promise(res => setTimeout(res, 1000));
+                } else if (!wasFreeSpin && result.scatters < 3) {
+                    msgBoard.innerText = "DEAD SPIN";
+                    msgBoard.style.color = "#555";
                 }
 
-                htmlSpinBtn.disabled = false;
+                // LOOP KONTROLLE
+                if (freeSpinsLeft > 0) {
+                    freeSpinsLeft--;
+                    await new Promise(res => setTimeout(res, 1000));
+                    
+                    if (freeSpinsLeft === 0) {
+                        // Bonus Game ist vorbei!
+                        msgBoard.innerText = `🏆 TOTAL BONUS WIN: ${totalBonusWin.toFixed(2)} € 🏆`;
+                        msgBoard.style.color = "#00ff44";
+                        msgBoard.style.transform = "scale(1.2)";
+                        this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 1000 }); // Rotes Licht aus
+                        await new Promise(res => setTimeout(res, 3000));
+                        msgBoard.style.transform = "scale(1)";
+                        msgBoard.innerText = "PRESS SPIN";
+                        htmlSpinBtn.disabled = false;
+                    } else {
+                        // Automatisch nächsten Freespin starten!
+                        this.startSpin();
+                    }
+                } else {
+                    htmlSpinBtn.disabled = false;
+                }
             }
         }
 
-        const config = {
-            type: Phaser.AUTO,
-            width: 900,
-            height: 700,
-            parent: 'game-container',
-            transparent: true,
-            scene: [GameScene]
-        };
+        const config = { type: Phaser.AUTO, width: 900, height: 700, parent: 'game-container', transparent: true, scene: [GameScene] };
         const game = new Phaser.Game(config);
-
     </script>
 </body>
 </html>
