@@ -23,7 +23,7 @@ if (MONGO_URL) {
 }
 
 // ==========================================
-// SLOT ENGINE (V2 Balanced RTP)
+// SLOT ENGINE (V3 - Auto Freespins & 33% Bonus Chance)
 // ==========================================
 const symbols = [
     { icon: '🍊', name: 'ORANGE', weight: 5,  pays: [0, 0, 0, 5, 20, 100] },
@@ -37,8 +37,8 @@ const symbols = [
     { icon: ' J', name: 'JACK',   weight: 70, pays: [0, 0, 0, 0.4, 1, 3] },
     { icon: '10', name: 'TEN',    weight: 80, pays: [0, 0, 0, 0.2, 0.5, 2] },
     { icon: '🌪️', name: 'JUICER', weight: 7,  pays: [0, 0, 0, 0, 0, 0], isWild: true },
-    // DEV CHEAT: Scatter Weight auf 150 gesetzt, damit du die Freispiele sofort siehst!
-    { icon: '🌟', name: 'SCATTER',weight: 150, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
+    // MATHEMATIK: Weight 35 bedeutet auf 25 Feldern ca. 33% Chance auf 3+ Scatters pro Spin!
+    { icon: '🌟', name: 'SCATTER',weight: 35, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
 ];
 
 const multipliers = [
@@ -58,7 +58,7 @@ function getRandomSymbol(isBonusGame = false) {
     let currentSymbols = symbols.map(s => ({...s})); 
     if (isBonusGame) {
         let juicer = currentSymbols.find(s => s.name === 'JUICER');
-        juicer.weight = 15; 
+        juicer.weight = 25; // Massive Juicer Boost in Free Spins!
     }
     const totalWeight = currentSymbols.reduce((sum, sym) => sum + sym.weight, 0);
     let randomNum = Math.random() * totalWeight;
@@ -80,9 +80,11 @@ app.get('/', (req, res) => {
 });
 
 app.post('/api/spin', (req, res) => {
-    const betAmount = 1; 
+    // Erkennt, ob der Browser gerade einen Freespin anfordert
+    const isFreeSpin = req.body.isFreeSpin === true;
+    const betAmount = isFreeSpin ? 0 : 1; // Freispiele kosten 0€!
 
-    if (dummyBalance < betAmount) {
+    if (!isFreeSpin && dummyBalance < 1) {
         return res.json({ error: "NICHT GENUG BALANCE!" });
     }
 
@@ -93,7 +95,7 @@ app.post('/api/spin', (req, res) => {
 
     for (let row = 0; row < 5; row++) {
         for (let col = 0; col < 5; col++) {
-            const sym = getRandomSymbol(false);
+            const sym = getRandomSymbol(isFreeSpin);
             grid[row][col] = sym;
             if (sym.isScatter) scatterCount++;
         }
@@ -126,7 +128,9 @@ app.post('/api/spin', (req, res) => {
         }
 
         if (matchCount >= 3 && targetSymbol) {
-            let baseWin = betAmount * targetSymbol.pays[matchCount];
+            // WICHTIG: Im Freispiel berechnen wir den Gewinn trotzdem auf Basis von 1€ Einsatz!
+            let calculationBet = isFreeSpin ? 1 : betAmount; 
+            let baseWin = calculationBet * targetSymbol.pays[matchCount];
             let finalWin = baseWin;
 
             if (lineHasJuicer) {
@@ -137,7 +141,6 @@ app.post('/api/spin', (req, res) => {
                         const m2 = multipliers[Math.floor(Math.random() * multipliers.length)];
                         const winner = Math.random() > 0.5 ? m1 : m2;
                         expandedJuicers.set(col, winner);
-                        
                         juicerDuels.push({ col: col, multi: winner }); 
                     }
                     totalMulti += expandedJuicers.get(col);
@@ -155,11 +158,12 @@ app.post('/api/spin', (req, res) => {
         win: totalWin,
         scatters: scatterCount,
         juicerDuels: juicerDuels,
-        newBalance: dummyBalance
+        newBalance: dummyBalance,
+        wasFreeSpin: isFreeSpin
     });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-    console.log(`🎰 Chaos Orange Slot läuft auf Port ${PORT}`);
+    console.log(`🎰 Chaos Orange Slot V3 läuft auf Port ${PORT}`);
 });
