@@ -105,7 +105,6 @@
         };
         const allEmojis = Object.values(symbolEmojis);
 
-        // FREESPIN LOGIK
         let freeSpinsLeft = 0;
         let totalBonusWin = 0;
 
@@ -114,10 +113,18 @@
 
             create() {
                 this.bonusBg = this.add.rectangle(450, 350, 900, 700, 0xff0000).setAlpha(0);
-                this.add.rectangle(450, 320, 560, 560, 0x111111).setStrokeStyle(4, 0x333333);
+                
+                // Hintergrund der Slot-Walzen
+                this.add.rectangle(450, 375, 560, 560, 0x111111).setStrokeStyle(4, 0x333333);
 
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
+
+                // 1. GANZ WICHTIG: Eine globale Maske für alle Walzen, damit nichts mehr abgeschnitten wird!
+                const globalMask = this.add.graphics()
+                    .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_SIZE * REEL_COUNT, SYMBOL_SIZE * ROW_COUNT)
+                    .createGeometryMask();
+                this.reelsContainer.setMask(globalMask);
 
                 for (let col = 0; col < REEL_COUNT; col++) {
                     const reelData = {
@@ -131,7 +138,7 @@
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
                         let bg = this.add.rectangle(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), SYMBOL_SIZE - 6, SYMBOL_SIZE - 6, 0x1a1a1a).setOrigin(0.5);
                         
-                        // FIX: Harte Emoji-Fonts erzwungen und Farbe auf Weiß gesetzt, damit auch A,K,Q,J,10 sichtbar sind!
+                        // Das Emoji-Objekt
                         let sym = this.add.text(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), '🍊', { 
                             fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif', 
                             fontSize: '60px',
@@ -143,18 +150,12 @@
                         reelData.container.add(sym);
                         reelData.symbols.push({ textObj: sym, bgObj: bg, yPos: r });
                     }
-                    
-                    // FIX: Die Maske etwas großzügiger gemacht, damit nichts abgeschnitten wird!
-                    const mask = this.add.graphics().fillRect(REEL_OFFSET_X + col * SYMBOL_SIZE, REEL_OFFSET_Y - 10, SYMBOL_SIZE, ROW_COUNT * SYMBOL_SIZE + 20).createGeometryMask();
-                    reelData.container.setMask(mask);
                     this.reels.push(reelData);
                 }
 
-                // Sofort ein paar Start-Symbole reinladen
+                // Initiale Symbole setzen
                 this.reels.forEach(reel => {
-                    reel.symbols.forEach(s => {
-                        s.textObj.setText(Phaser.Utils.Array.GetRandom(allEmojis));
-                    });
+                    reel.symbols.forEach(s => s.textObj.setText(Phaser.Utils.Array.GetRandom(allEmojis)));
                 });
 
                 htmlSpinBtn.addEventListener('click', () => this.startSpin());
@@ -239,7 +240,6 @@
             }
 
             async handleWinAnimations(result, wasFreeSpin) {
-                // NEUE SCATTERS GEFUNDEN (BASEGAME)
                 if (!wasFreeSpin && result.scatters >= 3) {
                     msgBoard.innerText = "🚨 THE BIG SQUEEZE 🚨";
                     msgBoard.style.color = "#ff0000";
@@ -253,7 +253,6 @@
                     freeSpinsLeft = 10; 
                 }
 
-                // JUICER DUELLE
                 if (result.juicerDuels && result.juicerDuels.length > 0) {
                     for (let duel of result.juicerDuels) {
                         msgBoard.innerText = `VS DUEL...`;
@@ -274,7 +273,6 @@
                     }
                 }
 
-                // GEWINN BERECHNUNG
                 if (result.win > 0) {
                     if (wasFreeSpin) totalBonusWin += result.win;
                     msgBoard.innerText = `WIN: ${result.win.toFixed(2)} €!`;
@@ -285,7 +283,6 @@
                     msgBoard.style.color = "#555";
                 }
 
-                // LOOP KONTROLLE FÜR FREISPIELE
                 if (freeSpinsLeft > 0) {
                     freeSpinsLeft--;
                     await new Promise(res => setTimeout(res, 1000));
@@ -300,7 +297,7 @@
                         msgBoard.innerText = "PRESS SPIN";
                         htmlSpinBtn.disabled = false;
                     } else {
-                        this.startSpin(); // Automatisch weiterdrehen!
+                        this.startSpin(); 
                     }
                 } else {
                     htmlSpinBtn.disabled = false;
@@ -308,7 +305,8 @@
             }
         }
 
-        const config = { type: Phaser.AUTO, width: 900, height: 700, parent: 'game-container', transparent: true, scene: [GameScene] };
+        // FIX: type: Phaser.CANVAS anstatt AUTO zwingt Browser die Emojis zu rendern (Bypass für Brave/Privacy Browser)
+        const config = { type: Phaser.CANVAS, width: 900, height: 700, parent: 'game-container', transparent: true, scene: [GameScene] };
         const game = new Phaser.Game(config);
     </script>
 </body>
