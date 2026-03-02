@@ -3,115 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;">
-    <title>Chaos Orange | Prototype</title>
+    <title>Chaos Orange | Sleek Edition</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Russo+One&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Teko:wght@500;700&display=swap');
 
         body {
-            background-color: #050505;
+            background-color: #030303;
             color: #fff;
-            font-family: 'Russo One', sans-serif;
+            /* Teko ist eine sehr schmale, moderne Casino-Schriftart (typisch für Hacksaw) */
+            font-family: 'Teko', sans-serif; 
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            background: radial-gradient(circle at 50% 40%, #1a0a00 0%, #000 80%);
+            background: radial-gradient(circle at center, #1a0f00 0%, #000 100%);
         }
 
-        #game-container {
+        #game-wrapper {
             position: relative;
-            width: 900px; 
-            height: 700px;
-            box-shadow: 0 0 40px rgba(255, 102, 0, 0.2);
-            border: 2px solid #333;
-            border-radius: 15px;
-            overflow: hidden;
+            width: 1000px;
+            height: 800px;
+            background: #080808;
+            border-radius: 10px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+            border: 1px solid #1a1a1a;
         }
 
-        .overlay-text { position: absolute; pointer-events: none; z-index: 100; }
-
-        .balance-box {
-            top: 20px;
-            right: 20px;
-            background: rgba(10,10,10,0.9);
-            padding: 10px 20px;
-            border: 1px solid #ff8c00;
-            border-radius: 8px;
-            font-size: 1.5rem;
-            box-shadow: 0 0 15px rgba(255, 140, 0, 0.3);
+        /* Das Casino Control Panel unten */
+        #control-bar {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80px;
+            background: #0a0a0a;
+            border-top: 2px solid #222;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 30px;
+            box-sizing: border-box;
+            z-index: 100;
         }
 
-        #msg-board {
-            bottom: 30px;
+        .panel-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .panel-label { color: #666; font-size: 18px; line-height: 1; letter-spacing: 1px; }
+        .panel-value { color: #fff; font-size: 32px; line-height: 1; font-weight: bold; }
+        .win-value { color: #ff8c00; font-size: 40px; text-shadow: 0 0 10px rgba(255, 140, 0, 0.5); }
+
+        /* Der runde Hacksaw-Style Spin Button */
+        #spin-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: transparent;
+            border: 3px solid #ff8c00;
+            color: #ff8c00;
+            cursor: pointer;
+            outline: none;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        #spin-btn::before {
+            content: "↻";
+            font-size: 36px;
+            font-weight: bold;
+        }
+        #spin-btn:hover { background: rgba(255, 140, 0, 0.1); transform: scale(1.05); }
+        #spin-btn:active { transform: scale(0.95); border-color: #cc6600; color: #cc6600; }
+        #spin-btn:disabled { border-color: #333; color: #333; cursor: not-allowed; background: transparent; transform: scale(1); }
+
+        #msg-overlay {
+            position: absolute;
+            top: 40%;
             width: 100%;
             text-align: center;
-            font-size: 2.2rem;
-            color: #ff8c00;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            text-shadow: 0 0 15px rgba(255, 140, 0, 0.8), 0 0 5px #fff;
-            transition: all 0.3s ease;
+            font-size: 80px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 200;
+            transform: scale(0.5);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-
-        #spin-btn-html {
-            position: absolute;
-            bottom: 90px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(180deg, #ff8c00, #cc3300);
-            border: 2px solid #ffb366;
-            color: white;
-            font-family: 'Russo One', sans-serif;
-            font-size: 2rem;
-            padding: 10px 50px;
-            border-radius: 40px;
-            cursor: pointer;
-            box-shadow: 0 10px 20px rgba(204, 51, 0, 0.5);
-            z-index: 101;
-        }
-        #spin-btn-html:active { transform: translateX(-50%) translateY(5px); }
-        #spin-btn-html:disabled { background: #333; color: #666; border-color: #444; cursor: not-allowed; transform: translateX(-50%); }
     </style>
 </head>
 <body>
 
-    <div id="game-container">
-        <div class="overlay-text balance-box">
-            <span style="color:#aaa;">USER:</span> <%= user.username %> | <span style="color:#0f0;" id="balance-amount"><%= user.balance.toFixed(2) %></span> €
+    <div id="game-wrapper">
+        <div id="phaser-canvas"></div>
+
+        <div id="msg-overlay">THE BIG SQUEEZE</div>
+
+        <div id="control-bar">
+            <div class="panel-box">
+                <span class="panel-label">BALANCE</span>
+                <span class="panel-value"><span id="ui-balance"><%= user.balance.toFixed(2) %></span> €</span>
+            </div>
+            
+            <div class="panel-box" style="text-align: center;">
+                <span class="panel-label" id="ui-win-label">WIN</span>
+                <span class="panel-value win-value" id="ui-win">0.00 €</span>
+            </div>
+
+            <div class="panel-box" style="align-items: center; flex-direction: row; gap: 20px;">
+                <div style="text-align: right;">
+                    <span class="panel-label">BET</span>
+                    <span class="panel-value">1.00 €</span>
+                </div>
+                <button id="spin-btn"></button>
+            </div>
         </div>
-        <div class="overlay-text" id="msg-board">PRESS SPIN</div>
-        <button id="spin-btn-html">SPIN (1€)</button>
     </div>
 
     <script>
-        const msgBoard = document.getElementById('msg-board');
-        const balanceDisplay = document.getElementById('balance-amount');
-        const htmlSpinBtn = document.getElementById('spin-btn-html');
+        const uiBalance = document.getElementById('ui-balance');
+        const uiWin = document.getElementById('ui-win');
+        const uiWinLabel = document.getElementById('ui-win-label');
+        const spinBtn = document.getElementById('spin-btn');
+        const msgOverlay = document.getElementById('msg-overlay');
 
+        // Layout Konstanten
         const REEL_COUNT = 5;
         const ROW_COUNT = 5;
-        const SYMBOL_SIZE = 110; 
-        const REEL_OFFSET_X = 175; 
-        const REEL_OFFSET_Y = 100; 
+        const SYMBOL_W = 140; 
+        const SYMBOL_H = 120; 
+        const REEL_OFFSET_X = 150; // Startpunkt X für die Walzen
+        const REEL_OFFSET_Y = 60;  // Startpunkt Y
 
-        // FARBEN & TEXTE ANSTATT BILDER/EMOJIS (100% Sicher für jeden Browser)
+        // Die reinen Text-Platzhalter (Später tauschen wir das Wort 'ORANGE' gegen das PNG Bild)
         const symbolStyles = {
-            'ORANGE':  { text: 'ORG', color: 0xff6600, textColor: '#ffffff' },
-            'ROLEX':   { text: 'RLX', color: 0xffcc00, textColor: '#000000' },
-            'BÜNDEL':  { text: 'CASH', color: 0x00cc44, textColor: '#ffffff' },
-            'ENERGY':  { text: 'NRG', color: 0x0088ff, textColor: '#ffffff' },
-            'CAP':     { text: 'CAP', color: 0x555555, textColor: '#ffffff' },
-            'ACE':     { text: 'A', color: 0x222222, textColor: '#ffffff' },
-            'KING':    { text: 'K', color: 0x222222, textColor: '#ffffff' },
-            'QUEEN':   { text: 'Q', color: 0x222222, textColor: '#ffffff' },
-            'JACK':    { text: 'J', color: 0x222222, textColor: '#ffffff' },
-            'TEN':     { text: '10', color: 0x222222, textColor: '#ffffff' },
-            'JUICER':  { text: 'VS', color: 0x9900ff, textColor: '#ffffff' }, // Violetter VS Juicer
-            'SCATTER': { text: 'BONUS', color: 0xffdd00, textColor: '#000000' } // Gelber Scatter
+            'ORANGE':  { text: 'ORG', color: '#ff6600' },
+            'ROLEX':   { text: 'RLX', color: '#ffcc00' },
+            'BÜNDEL':  { text: 'CASH', color: '#00ff44' },
+            'ENERGY':  { text: 'NRG', color: '#0088ff' },
+            'CAP':     { text: 'CAP', color: '#888888' },
+            'ACE':     { text: 'A', color: '#ffffff' },
+            'KING':    { text: 'K', color: '#ffffff' },
+            'QUEEN':   { text: 'Q', color: '#ffffff' },
+            'JACK':    { text: 'J', color: '#ffffff' },
+            'TEN':     { text: '10', color: '#ffffff' },
+            'JUICER':  { text: 'VS', color: '#ff0055' }, 
+            'SCATTER': { text: 'FS', color: '#ffdd00' } 
         };
         const symbolKeys = Object.keys(symbolStyles);
 
@@ -122,40 +166,48 @@
             constructor() { super('GameScene'); }
 
             create() {
-                // Roter Freispiel Hintergrund
-                this.bonusBg = this.add.rectangle(450, 350, 900, 700, 0x880000).setAlpha(0);
-                
-                // Hintergrund Slot Raster
-                this.add.rectangle(450, 375, 560, 560, 0x111111).setStrokeStyle(4, 0x333333);
+                // Roter Fade-Hintergrund für Freispiele
+                this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0x550000).setAlpha(0);
 
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
 
+                // Walzen Maske (Schneidet Symbole oben und unten sauber ab)
                 const globalMask = this.add.graphics()
-                    .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_SIZE * REEL_COUNT, SYMBOL_SIZE * ROW_COUNT)
+                    .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_W * REEL_COUNT, SYMBOL_H * ROW_COUNT)
                     .createGeometryMask();
                 this.reelsContainer.setMask(globalMask);
 
                 for (let col = 0; col < REEL_COUNT; col++) {
+                    // Dunkler Walzen-Hintergrund (Minimalistisch, keine Linien, keine Kästen!)
+                    this.add.rectangle(REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 10, SYMBOL_H * ROW_COUNT, 0x0f0f0f).setOrigin(0.5);
+
                     const reelData = {
-                        container: this.add.container(col * SYMBOL_SIZE, 0),
+                        container: this.add.container(col * SYMBOL_W, 0),
                         symbols: [],
                         isSpinning: false,
-                        finalResult: null
+                        vsOverlay: null
                     };
                     this.reelsContainer.add(reelData.container);
                     
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        // REINE FORMEN STATT EMOJIS!
-                        let bg = this.add.rectangle(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), SYMBOL_SIZE - 8, SYMBOL_SIZE - 8, 0x222222).setStrokeStyle(2, 0x000000).setOrigin(0.5);
-                        let symTxt = this.add.text(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), 'A', { 
-                            fontFamily: 'Arial', fontSize: '30px', fontStyle: 'bold', color: '#ffffff'
+                        // NUR TEXT, KEINE HINTERGRUND-BOXEN MEHR!
+                        let symTxt = this.add.text(SYMBOL_W / 2, r * SYMBOL_H + (SYMBOL_H / 2), 'A', { 
+                            fontFamily: 'Teko', fontSize: '60px', color: '#ffffff'
                         }).setOrigin(0.5);
                         
-                        reelData.container.add(bg);
                         reelData.container.add(symTxt);
-                        reelData.symbols.push({ textObj: symTxt, bgObj: bg, yPos: r });
+                        reelData.symbols.push({ textObj: symTxt, yPos: r });
                     }
+
+                    // Das VS Juicer Overlay (Versteckt bis zum Treffer)
+                    let vsBanner = this.add.container(col * SYMBOL_W, 0).setAlpha(0);
+                    let vsBg = this.add.rectangle(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 10, SYMBOL_H * ROW_COUNT, 0xff2200).setOrigin(0.5);
+                    let vsText = this.add.text(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, '100x', { fontFamily: 'Teko', fontSize: '80px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+                    vsBanner.add([vsBg, vsText]);
+                    this.reelsContainer.add(vsBanner);
+                    reelData.vsOverlay = { container: vsBanner, text: vsText };
+
                     this.reels.push(reelData);
                 }
 
@@ -164,69 +216,73 @@
                     reel.symbols.forEach(s => this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys)));
                 });
 
-                htmlSpinBtn.addEventListener('click', () => this.startSpin());
+                spinBtn.addEventListener('click', () => this.startSpin());
             }
 
-            // Hilfsfunktion zum Stylen der Placeholder-Blöcke
             setSymbolVisual(symbolObj, symName) {
                 const style = symbolStyles[symName];
-                symbolObj.bgObj.setFillStyle(style.color);
                 symbolObj.textObj.setText(style.text);
-                symbolObj.textObj.setColor(style.textColor);
+                symbolObj.textObj.setColor(style.color);
             }
 
             update() {
                 this.reels.forEach(reel => {
                     if (reel.isSpinning) {
                         reel.symbols.forEach(s => {
-                            s.textObj.y += 35; // Schnellerer Spin!
-                            s.bgObj.y += 35;
+                            s.textObj.y += 45; // Smooth but very fast drop
                             
-                            if (s.textObj.y > (ROW_COUNT) * SYMBOL_SIZE + (SYMBOL_SIZE/2)) {
-                                s.textObj.y -= (ROW_COUNT + 2) * SYMBOL_SIZE;
-                                s.bgObj.y -= (ROW_COUNT + 2) * SYMBOL_SIZE;
+                            if (s.textObj.y > (ROW_COUNT) * SYMBOL_H + (SYMBOL_H/2)) {
+                                s.textObj.y -= (ROW_COUNT + 2) * SYMBOL_H;
                                 this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
+                                s.textObj.setAlpha(0.3); // Motion Blur fake
                             }
                         });
                     }
                 });
             }
 
+            showOverlayMsg(text, color) {
+                msgOverlay.innerText = text;
+                msgOverlay.style.color = color;
+                msgOverlay.style.opacity = 1;
+                msgOverlay.style.transform = "scale(1)";
+                setTimeout(() => { 
+                    msgOverlay.style.opacity = 0; 
+                    msgOverlay.style.transform = "scale(0.5)"; 
+                }, 2000);
+            }
+
             async startSpin() {
-                htmlSpinBtn.disabled = true;
-                const isAutoFreeSpin = freeSpinsLeft > 0;
+                spinBtn.disabled = true;
+                uiWin.innerText = "0.00 €";
+                uiWinLabel.innerText = freeSpinsLeft > 0 ? `FREE SPINS: ${freeSpinsLeft}` : "WIN";
 
-                if (isAutoFreeSpin) {
-                    msgBoard.innerText = `FREESPINS LEFT: ${freeSpinsLeft}`;
-                    msgBoard.style.color = "#ffdd00";
-                } else {
-                    msgBoard.innerText = "SPINNING...";
-                    msgBoard.style.color = "#fff";
-                    totalBonusWin = 0; 
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 });
-                }
+                this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 });
 
-                this.reels.forEach(reel => { reel.isSpinning = true; });
+                this.reels.forEach(reel => { 
+                    reel.isSpinning = true; 
+                    reel.vsOverlay.container.setAlpha(0); // VS Banner verstecken
+                });
 
                 try {
                     const response = await fetch('/api/spin', { 
                         method: 'POST', 
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ isFreeSpin: isAutoFreeSpin })
+                        body: JSON.stringify({ isFreeSpin: freeSpinsLeft > 0 })
                     });
                     const result = await response.json();
 
-                    if (result.error) { msgBoard.innerText = result.error; htmlSpinBtn.disabled = false; return; }
-                    balanceDisplay.innerText = result.newBalance.toFixed(2);
+                    if (result.error) { spinBtn.disabled = false; return; }
+                    uiBalance.innerText = result.newBalance.toFixed(2);
 
                     for (let c = 0; c < REEL_COUNT; c++) {
                         await new Promise(res => setTimeout(res, 200)); 
                         this.stopReel(c, result.grid);
                     }
 
-                    await this.handleWinAnimations(result, isAutoFreeSpin);
+                    await this.handleWinAnimations(result, freeSpinsLeft > 0);
 
-                } catch (err) { console.error(err); htmlSpinBtn.disabled = false; }
+                } catch (err) { console.error(err); spinBtn.disabled = false; }
             }
 
             stopReel(colIdx, gridData) {
@@ -238,98 +294,76 @@
                     const s = reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y)[r+1]; 
                     
                     this.setSymbolVisual(s, symName);
+                    s.textObj.setAlpha(1);
                     
-                    let targetY = r * SYMBOL_SIZE + (SYMBOL_SIZE/2);
-                    s.textObj.y = targetY - 40;
-                    s.bgObj.y = targetY - 40;
-                    
-                    // Wuchtiger Bounce-Effekt beim Landen
-                    this.tweens.add({ targets: [s.textObj, s.bgObj], y: targetY, duration: 400, ease: 'Back.easeOut' });
+                    let targetY = r * SYMBOL_H + (SYMBOL_H/2);
+                    s.textObj.y = targetY - 60;
+                    this.tweens.add({ targets: s.textObj, y: targetY, duration: 400, ease: 'Back.easeOut' });
                 }
             }
 
             async handleWinAnimations(result, wasFreeSpin) {
-                // 1. SCATTER TRIGGER ANIMATION
+                // 1. SCATTER TRIGGER
                 if (!wasFreeSpin && result.scatters >= 3) {
-                    msgBoard.innerText = "🚨 THE BIG SQUEEZE 🚨";
-                    msgBoard.style.color = "#ff0000";
-                    msgBoard.style.transform = "scale(1.4)";
-                    
-                    // Roter Pulseffekt im Hintergrund
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.5, yoyo: true, repeat: -1, duration: 400 });
-                    this.cameras.main.shake(1500, 0.02); // Massiver Screen Shake
-                    
-                    await new Promise(res => setTimeout(res, 3000));
-                    msgBoard.style.transform = "scale(1)";
+                    this.showOverlayMsg("THE BIG SQUEEZE", "#ff0055");
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0.2, yoyo: true, repeat: -1, duration: 800 });
+                    this.cameras.main.shake(1500, 0.01); 
+                    await new Promise(res => setTimeout(res, 2500));
                     freeSpinsLeft = 10; 
                 }
 
-                // 2. VS JUICER AUSKLAPPEN ANIMATION
+                // 2. VS JUICER EXPAND 
                 if (result.juicerDuels && result.juicerDuels.length > 0) {
                     for (let duel of result.juicerDuels) {
-                        msgBoard.innerText = `VS DUEL...`;
-                        msgBoard.style.color = "#ff8c00";
+                        const vsBanner = this.reels[duel.col].vsOverlay;
+                        vsBanner.text.setText(`${duel.multi}x`);
                         
-                        // Die GANZE Spalte wird zu einem fetten Juicer
-                        this.reels[duel.col].symbols.forEach(s => {
-                            if (s.yPos >= 0 && s.yPos < 5) { 
-                                s.bgObj.setFillStyle(0xff0000); // Lava Rot
-                                s.textObj.setText(`VS\n${duel.multi}x`);
-                                s.textObj.setColor('#ffffff');
-                                s.textObj.setFontSize('26px');
-                            }
-                        });
+                        // Banner poppt auf
+                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 300 });
+                        this.cameras.main.shake(400, 0.005);
                         
-                        this.cameras.main.shake(500, 0.01);
-                        await new Promise(res => setTimeout(res, 1000)); 
-                        
-                        msgBoard.innerText = `🔥 ${duel.multi}x JUICER 🔥`;
-                        msgBoard.style.color = "#ffdd00";
-                        msgBoard.style.transform = "scale(1.3)";
-                        await new Promise(res => setTimeout(res, 1200));
-                        msgBoard.style.transform = "scale(1)";
+                        await new Promise(res => setTimeout(res, 800)); 
                     }
                 }
 
-                // 3. GEWINN ANZEIGE
+                // 3. WIN ANZEIGE
                 if (result.win > 0) {
                     if (wasFreeSpin) totalBonusWin += result.win;
-                    msgBoard.innerText = `WIN: ${result.win.toFixed(2)} €!`;
-                    msgBoard.style.color = "#00ff44";
+                    uiWin.innerText = `${result.win.toFixed(2)} €`;
                     
-                    // Gewinn wackelt leicht
-                    this.tweens.add({ targets: msgBoard, scale: 1.1, yoyo: true, duration: 200 });
+                    // Win Count-up Animation Fake
+                    this.tweens.add({ targets: uiWin, scaleX: 1.1, scaleY: 1.1, yoyo: true, duration: 200 });
                     await new Promise(res => setTimeout(res, 1200));
-                } else if (!wasFreeSpin && result.scatters < 3) {
-                    msgBoard.innerText = "DEAD SPIN";
-                    msgBoard.style.color = "#555";
                 }
 
-                // 4. FREISPIEL LOOP LOGIK
+                // 4. FREE SPIN LOGIK
                 if (freeSpinsLeft > 0) {
                     freeSpinsLeft--;
                     await new Promise(res => setTimeout(res, 1000));
                     
                     if (freeSpinsLeft === 0) {
-                        msgBoard.innerText = `🏆 TOTAL BONUS WIN: ${totalBonusWin.toFixed(2)} € 🏆`;
-                        msgBoard.style.color = "#00ff44";
-                        msgBoard.style.transform = "scale(1.2)";
+                        this.showOverlayMsg(`TOTAL WIN\n${totalBonusWin.toFixed(2)} €`, "#00ff44");
                         this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 1000 }); 
-                        await new Promise(res => setTimeout(res, 4000));
-                        msgBoard.style.transform = "scale(1)";
-                        msgBoard.innerText = "PRESS SPIN";
-                        htmlSpinBtn.disabled = false;
+                        uiWinLabel.innerText = "WIN";
+                        await new Promise(res => setTimeout(res, 3000));
+                        spinBtn.disabled = false;
                     } else {
                         this.startSpin(); 
                     }
                 } else {
-                    htmlSpinBtn.disabled = false;
+                    spinBtn.disabled = false;
                 }
             }
         }
 
-        // Wir erzwingen CANVAS, damit es bei jedem Browser (auch Brave) läuft!
-        const config = { type: Phaser.CANVAS, width: 900, height: 700, parent: 'game-container', transparent: true, scene: [GameScene] };
+        const config = { 
+            type: Phaser.CANVAS, 
+            width: 1000, 
+            height: 720, 
+            parent: 'phaser-canvas', 
+            transparent: true, 
+            scene: [GameScene] 
+        };
         const game = new Phaser.Game(config);
     </script>
 </body>
