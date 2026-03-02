@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net;">
-    <title>Chaos Orange | The Juicer</title>
+    <title>Chaos Orange | Prototype</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Russo+One&display=swap');
@@ -98,12 +98,22 @@
         const REEL_OFFSET_X = 175; 
         const REEL_OFFSET_Y = 100; 
 
-        const symbolEmojis = {
-            'ORANGE': '🍊', 'ROLEX': '⌚', 'BÜNDEL': '💵', 'ENERGY': '🥤', 'CAP': '🧢',
-            'ACE': 'A', 'KING': 'K', 'QUEEN': 'Q', 'JACK': 'J', 'TEN': '10',
-            'JUICER': '🌪️', 'SCATTER': '🌟'
+        // FARBEN & TEXTE ANSTATT BILDER/EMOJIS (100% Sicher für jeden Browser)
+        const symbolStyles = {
+            'ORANGE':  { text: 'ORG', color: 0xff6600, textColor: '#ffffff' },
+            'ROLEX':   { text: 'RLX', color: 0xffcc00, textColor: '#000000' },
+            'BÜNDEL':  { text: 'CASH', color: 0x00cc44, textColor: '#ffffff' },
+            'ENERGY':  { text: 'NRG', color: 0x0088ff, textColor: '#ffffff' },
+            'CAP':     { text: 'CAP', color: 0x555555, textColor: '#ffffff' },
+            'ACE':     { text: 'A', color: 0x222222, textColor: '#ffffff' },
+            'KING':    { text: 'K', color: 0x222222, textColor: '#ffffff' },
+            'QUEEN':   { text: 'Q', color: 0x222222, textColor: '#ffffff' },
+            'JACK':    { text: 'J', color: 0x222222, textColor: '#ffffff' },
+            'TEN':     { text: '10', color: 0x222222, textColor: '#ffffff' },
+            'JUICER':  { text: 'VS', color: 0x9900ff, textColor: '#ffffff' }, // Violetter VS Juicer
+            'SCATTER': { text: 'BONUS', color: 0xffdd00, textColor: '#000000' } // Gelber Scatter
         };
-        const allEmojis = Object.values(symbolEmojis);
+        const symbolKeys = Object.keys(symbolStyles);
 
         let freeSpinsLeft = 0;
         let totalBonusWin = 0;
@@ -112,15 +122,15 @@
             constructor() { super('GameScene'); }
 
             create() {
-                this.bonusBg = this.add.rectangle(450, 350, 900, 700, 0xff0000).setAlpha(0);
+                // Roter Freispiel Hintergrund
+                this.bonusBg = this.add.rectangle(450, 350, 900, 700, 0x880000).setAlpha(0);
                 
-                // Hintergrund der Slot-Walzen
+                // Hintergrund Slot Raster
                 this.add.rectangle(450, 375, 560, 560, 0x111111).setStrokeStyle(4, 0x333333);
 
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
 
-                // 1. GANZ WICHTIG: Eine globale Maske für alle Walzen, damit nichts mehr abgeschnitten wird!
                 const globalMask = this.add.graphics()
                     .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_SIZE * REEL_COUNT, SYMBOL_SIZE * ROW_COUNT)
                     .createGeometryMask();
@@ -136,43 +146,46 @@
                     this.reelsContainer.add(reelData.container);
                     
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        let bg = this.add.rectangle(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), SYMBOL_SIZE - 6, SYMBOL_SIZE - 6, 0x1a1a1a).setOrigin(0.5);
-                        
-                        // Das Emoji-Objekt
-                        let sym = this.add.text(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), '🍊', { 
-                            fontFamily: '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", Arial, sans-serif', 
-                            fontSize: '60px',
-                            color: '#ffffff',
-                            align: 'center'
+                        // REINE FORMEN STATT EMOJIS!
+                        let bg = this.add.rectangle(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), SYMBOL_SIZE - 8, SYMBOL_SIZE - 8, 0x222222).setStrokeStyle(2, 0x000000).setOrigin(0.5);
+                        let symTxt = this.add.text(SYMBOL_SIZE / 2, r * SYMBOL_SIZE + (SYMBOL_SIZE / 2), 'A', { 
+                            fontFamily: 'Arial', fontSize: '30px', fontStyle: 'bold', color: '#ffffff'
                         }).setOrigin(0.5);
                         
                         reelData.container.add(bg);
-                        reelData.container.add(sym);
-                        reelData.symbols.push({ textObj: sym, bgObj: bg, yPos: r });
+                        reelData.container.add(symTxt);
+                        reelData.symbols.push({ textObj: symTxt, bgObj: bg, yPos: r });
                     }
                     this.reels.push(reelData);
                 }
 
-                // Initiale Symbole setzen
+                // Initial füllen
                 this.reels.forEach(reel => {
-                    reel.symbols.forEach(s => s.textObj.setText(Phaser.Utils.Array.GetRandom(allEmojis)));
+                    reel.symbols.forEach(s => this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys)));
                 });
 
                 htmlSpinBtn.addEventListener('click', () => this.startSpin());
+            }
+
+            // Hilfsfunktion zum Stylen der Placeholder-Blöcke
+            setSymbolVisual(symbolObj, symName) {
+                const style = symbolStyles[symName];
+                symbolObj.bgObj.setFillStyle(style.color);
+                symbolObj.textObj.setText(style.text);
+                symbolObj.textObj.setColor(style.textColor);
             }
 
             update() {
                 this.reels.forEach(reel => {
                     if (reel.isSpinning) {
                         reel.symbols.forEach(s => {
-                            s.textObj.y += 25; 
-                            s.bgObj.y += 25;
+                            s.textObj.y += 35; // Schnellerer Spin!
+                            s.bgObj.y += 35;
                             
                             if (s.textObj.y > (ROW_COUNT) * SYMBOL_SIZE + (SYMBOL_SIZE/2)) {
                                 s.textObj.y -= (ROW_COUNT + 2) * SYMBOL_SIZE;
                                 s.bgObj.y -= (ROW_COUNT + 2) * SYMBOL_SIZE;
-                                s.textObj.setText(Phaser.Utils.Array.GetRandom(allEmojis));
-                                s.textObj.setAlpha(0.5); 
+                                this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
                             }
                         });
                     }
@@ -193,10 +206,7 @@
                     this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 });
                 }
 
-                this.reels.forEach(reel => { 
-                    reel.isSpinning = true; 
-                    reel.symbols.forEach(s => { s.bgObj.setFillStyle(0x1a1a1a); s.textObj.setAlpha(0.5); });
-                });
+                this.reels.forEach(reel => { reel.isSpinning = true; });
 
                 try {
                     const response = await fetch('/api/spin', { 
@@ -225,64 +235,77 @@
                 
                 for(let r=0; r<ROW_COUNT; r++) {
                     const symName = gridData[r][colIdx].name;
-                    const emoji = symbolEmojis[symName];
                     const s = reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y)[r+1]; 
                     
-                    s.textObj.setText(emoji);
-                    s.textObj.setAlpha(1); 
+                    this.setSymbolVisual(s, symName);
                     
                     let targetY = r * SYMBOL_SIZE + (SYMBOL_SIZE/2);
                     s.textObj.y = targetY - 40;
                     s.bgObj.y = targetY - 40;
                     
-                    this.tweens.add({ targets: [s.textObj, s.bgObj], y: targetY, duration: 300, ease: 'Bounce.easeOut' });
+                    // Wuchtiger Bounce-Effekt beim Landen
+                    this.tweens.add({ targets: [s.textObj, s.bgObj], y: targetY, duration: 400, ease: 'Back.easeOut' });
                 }
             }
 
             async handleWinAnimations(result, wasFreeSpin) {
+                // 1. SCATTER TRIGGER ANIMATION
                 if (!wasFreeSpin && result.scatters >= 3) {
                     msgBoard.innerText = "🚨 THE BIG SQUEEZE 🚨";
                     msgBoard.style.color = "#ff0000";
-                    msgBoard.style.transform = "scale(1.3)";
+                    msgBoard.style.transform = "scale(1.4)";
                     
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.3, yoyo: true, repeat: -1, duration: 500 });
-                    this.cameras.main.shake(1000, 0.015); 
+                    // Roter Pulseffekt im Hintergrund
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0.5, yoyo: true, repeat: -1, duration: 400 });
+                    this.cameras.main.shake(1500, 0.02); // Massiver Screen Shake
                     
-                    await new Promise(res => setTimeout(res, 2500));
+                    await new Promise(res => setTimeout(res, 3000));
                     msgBoard.style.transform = "scale(1)";
                     freeSpinsLeft = 10; 
                 }
 
+                // 2. VS JUICER AUSKLAPPEN ANIMATION
                 if (result.juicerDuels && result.juicerDuels.length > 0) {
                     for (let duel of result.juicerDuels) {
                         msgBoard.innerText = `VS DUEL...`;
                         msgBoard.style.color = "#ff8c00";
                         
+                        // Die GANZE Spalte wird zu einem fetten Juicer
                         this.reels[duel.col].symbols.forEach(s => {
-                            if (s.yPos >= 0 && s.yPos < 5) { s.bgObj.setFillStyle(0xff4500); s.textObj.setText('🌪️'); }
+                            if (s.yPos >= 0 && s.yPos < 5) { 
+                                s.bgObj.setFillStyle(0xff0000); // Lava Rot
+                                s.textObj.setText(`VS\n${duel.multi}x`);
+                                s.textObj.setColor('#ffffff');
+                                s.textObj.setFontSize('26px');
+                            }
                         });
                         
-                        this.cameras.main.shake(500, 0.005);
+                        this.cameras.main.shake(500, 0.01);
                         await new Promise(res => setTimeout(res, 1000)); 
                         
                         msgBoard.innerText = `🔥 ${duel.multi}x JUICER 🔥`;
                         msgBoard.style.color = "#ffdd00";
-                        msgBoard.style.transform = "scale(1.2)";
+                        msgBoard.style.transform = "scale(1.3)";
                         await new Promise(res => setTimeout(res, 1200));
                         msgBoard.style.transform = "scale(1)";
                     }
                 }
 
+                // 3. GEWINN ANZEIGE
                 if (result.win > 0) {
                     if (wasFreeSpin) totalBonusWin += result.win;
                     msgBoard.innerText = `WIN: ${result.win.toFixed(2)} €!`;
                     msgBoard.style.color = "#00ff44";
-                    await new Promise(res => setTimeout(res, 1000));
+                    
+                    // Gewinn wackelt leicht
+                    this.tweens.add({ targets: msgBoard, scale: 1.1, yoyo: true, duration: 200 });
+                    await new Promise(res => setTimeout(res, 1200));
                 } else if (!wasFreeSpin && result.scatters < 3) {
                     msgBoard.innerText = "DEAD SPIN";
                     msgBoard.style.color = "#555";
                 }
 
+                // 4. FREISPIEL LOOP LOGIK
                 if (freeSpinsLeft > 0) {
                     freeSpinsLeft--;
                     await new Promise(res => setTimeout(res, 1000));
@@ -292,7 +315,7 @@
                         msgBoard.style.color = "#00ff44";
                         msgBoard.style.transform = "scale(1.2)";
                         this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 1000 }); 
-                        await new Promise(res => setTimeout(res, 3000));
+                        await new Promise(res => setTimeout(res, 4000));
                         msgBoard.style.transform = "scale(1)";
                         msgBoard.innerText = "PRESS SPIN";
                         htmlSpinBtn.disabled = false;
@@ -305,7 +328,7 @@
             }
         }
 
-        // FIX: type: Phaser.CANVAS anstatt AUTO zwingt Browser die Emojis zu rendern (Bypass für Brave/Privacy Browser)
+        // Wir erzwingen CANVAS, damit es bei jedem Browser (auch Brave) läuft!
         const config = { type: Phaser.CANVAS, width: 900, height: 700, parent: 'game-container', transparent: true, scene: [GameScene] };
         const game = new Phaser.Game(config);
     </script>
