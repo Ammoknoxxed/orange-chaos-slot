@@ -153,12 +153,11 @@
             create() {
                 this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0x330000).setAlpha(0);
 
-                // FIX: Zuerst die schwarzen Walzen zeichnen! (Ebene 1)
+                // Schwarze Walzen im Hintergrund zeichnen
                 for (let col = 0; col < REEL_COUNT; col++) {
                     this.add.rectangle(REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 8, SYMBOL_H * ROW_COUNT, 0x0a0a0a).setOrigin(0.5);
                 }
 
-                // FIX: Danach erst den Container mit den Symbolen (Ebene 2, liegt also OBENDRAUF)
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
 
@@ -274,16 +273,31 @@
                 const reel = this.reels[colIdx];
                 reel.isSpinning = false; 
                 
-                for(let r=0; r<ROW_COUNT; r++) {
-                    const symName = gridData[r][colIdx].name;
-                    const s = reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y)[r+1]; 
+                // FIX FÜR DAS ÜBERLAPPEN:
+                // 1. Wir sortieren ALLE 7 Symbole nach ihrer aktuellen Höhe (Y)
+                reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y);
+                
+                // 2. Wir weisen JEDEM Symbol wieder exakt seinen festen Platz im Raster zu
+                for(let i = 0; i < reel.symbols.length; i++) {
+                    const s = reel.symbols[i];
+                    const r = i - 1; // Mappt Index 0-6 auf die Reihen -1 bis +5
                     
-                    this.setSymbolVisual(s, symName);
+                    // Wenn es eine sichtbare Reihe ist (0-4), nimm das echte Server-Symbol
+                    if (r >= 0 && r < ROW_COUNT) {
+                        const symName = gridData[r][colIdx].name;
+                        this.setSymbolVisual(s, symName);
+                    } else {
+                        // Die unsichtbaren Ränder bekommen Dummies
+                        this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
+                    }
+                    
                     s.textObj.setAlpha(1);
                     
+                    // Exaktes Raster-Ziel berechnen
                     let targetY = r * SYMBOL_H + (SYMBOL_H/2);
-                    s.textObj.y = targetY - 60;
                     
+                    // Setze es ein Stück nach oben und lass es rein bouncen
+                    s.textObj.y = targetY - 60;
                     this.tweens.add({ targets: s.textObj, y: targetY, duration: 350, ease: 'Back.easeOut' });
                 }
             }
