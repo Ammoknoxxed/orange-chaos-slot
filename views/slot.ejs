@@ -9,7 +9,6 @@
         body {
             background-color: #030303;
             color: #fff;
-            /* Wir nutzen vorinstallierte Web-Safe Fonts für garantiertes Rendering! */
             font-family: Impact, 'Arial Black', sans-serif; 
             margin: 0;
             display: flex;
@@ -30,7 +29,6 @@
             border: 2px solid #1a1a1a;
         }
 
-        /* Das Casino Control Panel unten (Hacksaw Style) */
         #control-bar {
             position: absolute;
             bottom: 0;
@@ -46,17 +44,11 @@
             z-index: 100;
         }
 
-        .panel-box {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
+        .panel-box { display: flex; flex-direction: column; justify-content: center; }
         .panel-label { color: #555; font-size: 14px; line-height: 1; letter-spacing: 1px; font-family: Arial, sans-serif; font-weight: bold;}
         .panel-value { color: #fff; font-size: 26px; line-height: 1.2; font-family: Impact, sans-serif; letter-spacing: 1px; }
         .win-value { color: #ff8c00; font-size: 34px; text-shadow: 0 0 10px rgba(255, 140, 0, 0.4); }
 
-        /* Der runde Spin Button */
         #spin-btn {
             width: 60px;
             height: 60px;
@@ -71,15 +63,10 @@
             align-items: center;
             transition: all 0.2s;
         }
-        #spin-btn::before {
-            content: "↻";
-            font-size: 36px;
-            font-weight: bold;
-            font-family: Arial;
-        }
+        #spin-btn::before { content: "↻"; font-size: 36px; font-weight: bold; font-family: Arial; }
         #spin-btn:hover { background: rgba(255, 140, 0, 0.1); transform: scale(1.05); }
         #spin-btn:active { transform: scale(0.95); border-color: #cc6600; color: #cc6600; }
-        #spin-btn:disabled { border-color: #333; color: #333; cursor: not-allowed; background: transparent; transform: scale(1); }
+        #spin-btn:disabled { border-color: #333; color: #333; cursor: not-allowed; transform: scale(1); }
 
         #msg-overlay {
             position: absolute;
@@ -134,7 +121,6 @@
         const spinBtn = document.getElementById('spin-btn');
         const msgOverlay = document.getElementById('msg-overlay');
 
-        // Layout Konstanten (Exakt auf 5x5 Hacksaw Grid abgestimmt)
         const REEL_COUNT = 5;
         const ROW_COUNT = 5;
         const SYMBOL_W = 140; 
@@ -142,7 +128,6 @@
         const REEL_OFFSET_X = 150; 
         const REEL_OFFSET_Y = 60;  
 
-        // Platzhalter-Texte für den ersten Prototyp (Safe Fonts)
         const symbolStyles = {
             'ORANGE':  { text: 'ORG', color: '#ff6600' },
             'ROLEX':   { text: 'RLX', color: '#ffcc00' },
@@ -166,22 +151,23 @@
             constructor() { super('GameScene'); }
 
             create() {
-                // Düsterer Freispiel-Hintergrund
                 this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0x330000).setAlpha(0);
 
+                // FIX: Zuerst die schwarzen Walzen zeichnen! (Ebene 1)
+                for (let col = 0; col < REEL_COUNT; col++) {
+                    this.add.rectangle(REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 8, SYMBOL_H * ROW_COUNT, 0x0a0a0a).setOrigin(0.5);
+                }
+
+                // FIX: Danach erst den Container mit den Symbolen (Ebene 2, liegt also OBENDRAUF)
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
 
-                // Exakte Maske, damit Symbole beim Drehen oben/unten unsichtbar werden
                 const globalMask = this.add.graphics()
                     .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_W * REEL_COUNT, SYMBOL_H * ROW_COUNT)
                     .createGeometryMask();
                 this.reelsContainer.setMask(globalMask);
 
                 for (let col = 0; col < REEL_COUNT; col++) {
-                    // Die dunklen, schmalen Walzenstreifen im Hintergrund
-                    this.add.rectangle(REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 8, SYMBOL_H * ROW_COUNT, 0x0a0a0a).setOrigin(0.5);
-
                     const reelData = {
                         container: this.add.container(col * SYMBOL_W, 0),
                         symbols: [],
@@ -191,7 +177,6 @@
                     this.reelsContainer.add(reelData.container);
                     
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        // SICHERER FONT: Impact
                         let symTxt = this.add.text(SYMBOL_W / 2, r * SYMBOL_H + (SYMBOL_H / 2), 'A', { 
                             fontFamily: 'Impact, "Arial Black", sans-serif', fontSize: '50px', color: '#ffffff'
                         }).setOrigin(0.5);
@@ -200,7 +185,7 @@
                         reelData.symbols.push({ textObj: symTxt, yPos: r });
                     }
 
-                    // VS Juicer Overlay (Duel at Dawn Style!)
+                    // VS Juicer Overlay
                     let vsBanner = this.add.container(col * SYMBOL_W, 0).setAlpha(0);
                     let vsBg = this.add.rectangle(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 4, SYMBOL_H * ROW_COUNT, 0xaa0000).setOrigin(0.5);
                     let vsText = this.add.text(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, '100x', { fontFamily: 'Impact, sans-serif', fontSize: '65px', color: '#ffffff' }).setOrigin(0.5);
@@ -212,7 +197,6 @@
                     this.reels.push(reelData);
                 }
 
-                // Initial Symbole setzen
                 this.reels.forEach(reel => {
                     reel.symbols.forEach(s => this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys)));
                 });
@@ -230,12 +214,12 @@
                 this.reels.forEach(reel => {
                     if (reel.isSpinning) {
                         reel.symbols.forEach(s => {
-                            s.textObj.y += 45; // Schneller Spin
+                            s.textObj.y += 45; 
                             
                             if (s.textObj.y > (ROW_COUNT) * SYMBOL_H + (SYMBOL_H/2)) {
                                 s.textObj.y -= (ROW_COUNT + 2) * SYMBOL_H;
                                 this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
-                                s.textObj.setAlpha(0.3); // Motion Blur fake
+                                s.textObj.setAlpha(0.3); 
                             }
                         });
                     }
@@ -300,13 +284,11 @@
                     let targetY = r * SYMBOL_H + (SYMBOL_H/2);
                     s.textObj.y = targetY - 60;
                     
-                    // Der schwere "Duel at Dawn" Bounce beim Stoppen der Walzen
                     this.tweens.add({ targets: s.textObj, y: targetY, duration: 350, ease: 'Back.easeOut' });
                 }
             }
 
             async handleWinAnimations(result, wasFreeSpin) {
-                // 1. SCATTER TRIGGER (THE BIG SQUEEZE)
                 if (!wasFreeSpin && result.scatters >= 3) {
                     this.showOverlayMsg("THE BIG SQUEEZE", "#ff2200");
                     this.tweens.add({ targets: this.bonusBg, alpha: 0.3, yoyo: true, repeat: -1, duration: 600 });
@@ -315,7 +297,6 @@
                     freeSpinsLeft = 10; 
                 }
 
-                // 2. VS JUICER EXPAND (DUEL AT DAWN STYLE)
                 if (result.juicerDuels && result.juicerDuels.length > 0) {
                     for (let duel of result.juicerDuels) {
                         const vsBanner = this.reels[duel.col].vsOverlay;
@@ -328,7 +309,6 @@
                     }
                 }
 
-                // 3. WIN ANZEIGE
                 if (result.win > 0) {
                     if (wasFreeSpin) totalBonusWin += result.win;
                     uiWin.innerText = `${result.win.toFixed(2)} €`;
@@ -337,7 +317,6 @@
                     await new Promise(res => setTimeout(res, 1000));
                 }
 
-                // 4. FREE SPIN LOGIK
                 if (freeSpinsLeft > 0) {
                     freeSpinsLeft--;
                     await new Promise(res => setTimeout(res, 800));
