@@ -13,7 +13,7 @@ if (MONGO_URL) {
 }
 
 // ==========================================
-// CHAOS ORANGE ENGINE (High Volatility)
+// CHAOS ORANGE ENGINE (Extreme Volatility)
 // ==========================================
 const symbols = [
     { name: 'ORANGE', weight: 5,  pays: [0, 0, 0, 4, 10, 20] },   // Top Symbol
@@ -32,9 +32,10 @@ const symbols = [
     { name: 'SCATTER',weight: 40, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
 ];
 
-const multipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100, 200];
+// Die absolut kranken Hacksaw-Multis (bis 1000x für den totalen Wahnsinn)
+const multipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100, 250, 500, 1000];
 
-// Exakt 19 Gewinnlinien für ein 5x5 Chaos Grid
+// 19 Gewinnlinien
 const paylines = [
     [0,0,0,0,0], [1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], 
     [0,1,2,1,0], [1,2,3,2,1], [2,3,4,3,2], [4,3,2,3,4], [3,2,1,2,3], 
@@ -61,19 +62,21 @@ app.post('/api/spin', (req, res) => {
     dummyBalance -= betAmount;
 
     let isChaosDrop = gameState.mode === 'CHAOS_DROP';
-    
     let grid = Array(5).fill(null).map(() => Array(5).fill(null));
-    let scatterCount = 0;
     
-    // REGEL: JUICER und BOMBER NIEMALS gleichzeitig auf dem Grid!
+    // Feature Rule
     let allowedFeature = Math.random() > 0.5 ? 'JUICER' : 'BOMBER';
     if (gameState.mode === 'CHAOS_SPINS' && !isChaosDrop) allowedFeature = 'BOMBER'; 
     if (isChaosDrop) allowedFeature = 'JUICER';
 
     let bombersOnGrid = 0;
+    let scatterCount = 0;
+    let earlyScatters = 0; // Für die Teaser-Logik
 
     for (let col = 0; col < 5; col++) {
         let colHasFeature = false;
+        let scatterInThisCol = false;
+
         for (let row = 0; row < 5; row++) {
             let symPool = symbols.filter(s => {
                 if (s.name === 'SCATTER' && gameState.mode === 'CHAOS_SPINS') return false; 
@@ -93,11 +96,21 @@ app.post('/api/spin', (req, res) => {
             for (const sym of symPool) { if (r < sym.weight) { chosen = sym; break; } r -= sym.weight; }
 
             grid[row][col] = chosen.name;
-            if (chosen.isScatter) scatterCount++;
+            
+            if (chosen.isScatter) {
+                scatterCount++;
+                scatterInThisCol = true;
+            }
             if (chosen.name === 'JUICER' || chosen.name === 'BOMBER') colHasFeature = true;
             if (chosen.name === 'BOMBER') bombersOnGrid++;
         }
+        
+        // Zähle Scatters auf den ersten 3 Walzen für den Tension-Spin
+        if (col < 3 && scatterInThisCol) earlyScatters++;
     }
+
+    // Teaser Logik: Wenn auf den ersten 3 Walzen schon 2 Scatter sind -> Hype auf Walze 4 und 5!
+    let isTeaser = (earlyScatters >= 2 && gameState.mode === 'BASE');
 
     // CHAOS DROP Guaranteed Juicers
     if (isChaosDrop) {
@@ -143,7 +156,7 @@ app.post('/api/spin', (req, res) => {
         }
     }
 
-    // JUICER WIN-CHECK LOGIC (Tease!)
+    // JUICER WIN-CHECK LOGIC
     let activeJuicers = [];
     for(let c=0; c<5; c++) {
         for(let r=0; r<5; r++) if(grid[r][c] === 'JUICER') activeJuicers.push(c);
@@ -169,11 +182,10 @@ app.post('/api/spin', (req, res) => {
             if (matchCount >= 3) lineJuicers.forEach(j => winningJuicers.add(j));
         });
 
-        // Nur die, die gewinnen, klappen echt aus!
         winningJuicers.forEach(c => {
             let m1 = multipliers[Math.floor(Math.random() * multipliers.length)];
             let m2 = multipliers[Math.floor(Math.random() * multipliers.length)];
-            let winner = Math.random() > 0.5 ? m1 : m2;
+            let winner = Math.random() > 0.5 ? m1 : m2; // Visual Tease possible later
             juicersExpanded.push({ col: c, multi: winner });
             for(let r=0; r<5; r++) grid[r][c] = 'WILD_JUICER';
         });
@@ -251,7 +263,8 @@ app.post('/api/spin', (req, res) => {
         spinsLeft: gameState.freeSpinsLeft,
         totalBonusWin: gameState.totalBonusWin, 
         nextAction: nextAction,
-        drops: gameState.dropsCollected
+        drops: gameState.dropsCollected,
+        isTeaser: isTeaser // TEASER FLAG FÜR FRONTEND!
     });
 });
 
