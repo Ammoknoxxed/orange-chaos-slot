@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+app.use(express.static('public'));
 
 // Optional: DB Anbindung (falls du eine nutzt)
 const MONGO_URL = process.env.MONGO_URL || ''; 
