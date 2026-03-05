@@ -7,18 +7,24 @@ app.use(express.json());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
+// Optional: DB Anbindung (falls du eine nutzt)
+const MONGO_URL = process.env.MONGO_URL || ''; 
+if (MONGO_URL) {
+    mongoose.connect(MONGO_URL).then(() => console.log('✅ Mit MongoDB verbunden!')).catch(err => console.error('❌ MongoDB Fehler:', err));
+}
+
 // ==========================================
-// CHAOS ORANGE ENGINE: SCATTER PAYS & CASCADES
+// CHAOS ORANGE: CASCADE ENGINE
 // ==========================================
 const COLS = 6;
 const ROWS = 5;
 
-// Scatter Pays: Payouts für 8-9, 10-11, 12+ Symbole
+// Scatter Pays (8-9, 10-11, 12+), Weights bestimmen Seltenheit
 const symbols = [
-    { name: 'ORANGE',  pays: [10, 25, 50], weight: 10, isPremium: true },
-    { name: 'ROLEX',   pays: [2.5, 10, 25], weight: 20, isPremium: true },
-    { name: 'CASH',    pays: [2, 5, 15], weight: 30, isPremium: true },
-    { name: 'ENERGY',  pays: [1.5, 2, 10], weight: 40, isPremium: true },
+    { name: 'ORANGE',  pays: [10, 25, 50], weight: 10 },
+    { name: 'ROLEX',   pays: [2.5, 10, 25], weight: 20 },
+    { name: 'CASH',    pays: [2, 5, 15], weight: 30 },
+    { name: 'ENERGY',  pays: [1.5, 2, 10], weight: 40 },
     { name: 'A',       pays: [1, 1.5, 5], weight: 60 },
     { name: 'K',       pays: [0.8, 1.2, 4], weight: 70 },
     { name: 'Q',       pays: [0.5, 1, 3], weight: 80 },
@@ -29,7 +35,7 @@ const symbols = [
 
 const bombMultis = [2, 3, 4, 5, 8, 10, 15, 20, 25, 50, 100, 250, 500];
 
-// Game State (Simulated per Session - in real prod use DB/Sessions)
+// Session State (Fake-DB)
 let gameState = {
     mode: 'BASE',
     freeSpinsLeft: 0,
@@ -38,13 +44,11 @@ let gameState = {
 };
 let dummyBalance = 1000;
 
-function getRandomSymbol(mode = 'BASE') {
-    let pool = symbols;
-    let totalW = pool.reduce((sum, sym) => sum + sym.weight, 0);
+function getRandomSymbol() {
+    let totalW = symbols.reduce((sum, sym) => sum + sym.weight, 0);
     let r = Math.random() * totalW;
-    for (const sym of pool) {
+    for (const sym of symbols) {
         if (r < sym.weight) {
-            // Wenn Bombe, weise Multi zu
             if (sym.name === 'BOMB') {
                 return { name: 'BOMB', multi: bombMultis[Math.floor(Math.random() * bombMultis.length)] };
             }
@@ -65,7 +69,6 @@ function generateGrid() {
     return grid;
 }
 
-// Prüft, ob es auf dem Grid einen Gewinn gibt (>= 8 gleiche)
 function evaluateGrid(grid) {
     let counts = {};
     let positions = {};
@@ -104,11 +107,13 @@ function applyGravity(grid, symbolsToRemove) {
     let newGrid = [];
     for(let c = 0; c < COLS; c++) {
         let newCol = [];
+        // Überlebende Symbole nach unten fallen lassen
         for(let r = ROWS - 1; r >= 0; r--) {
             if(!symbolsToRemove.some(pos => pos.c === c && pos.r === r)) {
                 newCol.unshift(grid[c][r]); 
             }
         }
+        // Leere Stellen oben mit neuen auffüllen
         while(newCol.length < ROWS) newCol.unshift(getRandomSymbol());
         newGrid.push(newCol);
     }
@@ -134,7 +139,7 @@ app.post('/api/spin', (req, res) => {
 
     let grid = generateGrid();
     
-    // Bonus Buy Scatter Garantie
+    // Feature Buy = Garantiert 4 Scatter
     if(isBonusBuy) {
         let scCols = [0,1,2,3,4,5].sort(()=>0.5-Math.random()).slice(0,4);
         scCols.forEach(c => grid[c][Math.floor(Math.random()*ROWS)] = {name: 'SCATTER'});
@@ -145,17 +150,15 @@ app.post('/api/spin', (req, res) => {
     let totalBaseWin = 0;
     let stepCount = 0;
 
-    // SCATTER CHECK (Initial Grid)
     let initialScatters = 0;
     for(let c=0; c<COLS; c++) for(let r=0; r<ROWS; r++) if(grid[c][r].name === 'SCATTER') initialScatters++;
 
-    // CASCADING LOOP
+    // Kaskaden-Schleife (bis keine Gewinne mehr)
     while(cascadeActive && stepCount < 20) {
         let evalResult = evaluateGrid(grid);
         
-        // Push current state
         cascades.push({
-            grid: JSON.parse(JSON.stringify(grid)), // Deep copy
+            grid: JSON.parse(JSON.stringify(grid)), 
             wins: evalResult.wins,
             stepWin: evalResult.stepWin,
             removed: evalResult.symbolsToRemove
@@ -170,7 +173,7 @@ app.post('/api/spin', (req, res) => {
         }
     }
 
-    // MULTIPLIER BOMB LOGIC
+    // Bomben Multiplikatoren am Ende addieren
     let finalGrid = cascades[cascades.length - 1].grid;
     let stepBombs = [];
     let totalBombMulti = 0;
@@ -186,7 +189,7 @@ app.post('/api/spin', (req, res) => {
 
     let finalSpinWin = totalBaseWin;
     
-    // Wenn es einen Base-Gewinn gab und Bomben liegen, multipliziere!
+    // Multipliziere, wenn es einen Gewinn GAB
     if (totalBaseWin > 0) {
         if (gameState.mode === 'FREE_SPINS') {
             if (totalBombMulti > 0) gameState.globalMultiplier += totalBombMulti;
@@ -199,7 +202,6 @@ app.post('/api/spin', (req, res) => {
     dummyBalance += finalSpinWin;
     if (gameState.mode === 'FREE_SPINS') gameState.totalBonusWin += finalSpinWin;
 
-    // TRIGGER FREE SPINS FROM BASE GAME
     let triggeredBonus = false;
     if (gameState.mode === 'BASE' && initialScatters >= 4) {
         gameState.mode = 'FREE_SPINS';
@@ -209,7 +211,6 @@ app.post('/api/spin', (req, res) => {
         triggeredBonus = true;
     }
 
-    // FREE SPINS RETRIGGER
     if (gameState.mode === 'FREE_SPINS' && initialScatters >= 3 && !triggeredBonus && !isBonusBuy) {
         gameState.freeSpinsLeft += 5;
     }
@@ -228,7 +229,6 @@ app.post('/api/spin', (req, res) => {
         bombs: stepBombs,
         totalBaseWin: totalBaseWin,
         finalSpinWin: finalSpinWin,
-        scatters: initialScatters,
         newBalance: dummyBalance,
         bonusTriggered: triggeredBonus,
         spinsLeft: gameState.freeSpinsLeft,
