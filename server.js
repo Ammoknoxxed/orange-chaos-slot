@@ -30,6 +30,7 @@ const symbols = [
     { name: 'K',       pays: [0.8, 1.2, 4], weight: 70 },
     { name: 'Q',       pays: [0.5, 1, 3], weight: 80 },
     { name: 'J',       pays: [0.4, 0.9, 2], weight: 90 },
+    { name: 'TEN',     pays: [0.3, 0.8, 1.5], weight: 100 },
     { name: 'BOMB',    weight: 8, isMulti: true }, 
     { name: 'SCATTER', weight: 6, isScatter: true } 
 ];
