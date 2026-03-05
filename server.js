@@ -13,28 +13,28 @@ if (MONGO_URL) {
 }
 
 // ==========================================
-// DUEL AT DAWN ENGINE (1:1 Payouts & Rules)
+// CHAOS ORANGE ENGINE (High Volatility)
 // ==========================================
 const symbols = [
-    { name: 'ORANGE', weight: 5,  pays: [0, 0, 0, 4, 10, 20] },   // Sheriff
-    { name: 'ROLEX',  weight: 10, pays: [0, 0, 0, 2, 6, 12] },    // Guns
-    { name: 'BÜNDEL', weight: 15, pays: [0, 0, 0, 2, 6, 12] },    // Hat
-    { name: 'ENERGY', weight: 20, pays: [0, 0, 0, 1, 3, 6] },     // Skull
-    { name: 'CAP',    weight: 25, pays: [0, 0, 0, 1, 3, 6] },     // Wheel
+    { name: 'ORANGE', weight: 5,  pays: [0, 0, 0, 4, 10, 20] },   // Top Symbol
+    { name: 'ROLEX',  weight: 10, pays: [0, 0, 0, 2, 6, 12] },    
+    { name: 'BÜNDEL', weight: 15, pays: [0, 0, 0, 2, 6, 12] },    
+    { name: 'ENERGY', weight: 20, pays: [0, 0, 0, 1, 3, 6] },     
+    { name: 'CAP',    weight: 25, pays: [0, 0, 0, 1, 3, 6] },     
     { name: 'ACE',    weight: 40, pays: [0, 0, 0, 0.2, 1, 2] },
     { name: 'KING',   weight: 50, pays: [0, 0, 0, 0.2, 1, 2] },
     { name: 'QUEEN',  weight: 60, pays: [0, 0, 0, 0.2, 1, 2] },
     { name: 'JACK',   weight: 70, pays: [0, 0, 0, 0.2, 1, 2] },
     { name: 'TEN',    weight: 80, pays: [0, 0, 0, 0.2, 1, 2] },
     { name: 'WILD',   weight: 10, pays: [0, 0, 0, 0, 0, 20], isWild: true }, 
-    { name: 'JUICER', weight: 8,  pays: [0, 0, 0, 0, 0, 0] }, // VS
-    { name: 'OUTLAW', weight: 5,  pays: [0, 0, 0, 0, 0, 0] }, // Gunman
+    { name: 'JUICER', weight: 8,  pays: [0, 0, 0, 0, 0, 0] }, // Expanding VS
+    { name: 'BOMBER', weight: 5,  pays: [0, 0, 0, 0, 0, 0] }, // Gunman/Bomber
     { name: 'SCATTER',weight: 40, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
 ];
 
 const multipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100, 200];
 
-// Exakt 19 Gewinnlinien für ein 5x5 Hacksaw Grid
+// Exakt 19 Gewinnlinien für ein 5x5 Chaos Grid
 const paylines = [
     [0,0,0,0,0], [1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], 
     [0,1,2,1,0], [1,2,3,2,1], [2,3,4,3,2], [4,3,2,3,4], [3,2,1,2,3], 
@@ -46,45 +46,45 @@ let gameState = {
     mode: 'BASE',
     freeSpinsLeft: 0,
     totalBonusWin: 0,
-    bulletsCollected: 0,
-    duelSpinsUnlocked: 0,
-    duelSpinsQueue: 0
+    dropsCollected: 0,
+    chaosDropsUnlocked: 0,
+    chaosDropsQueue: 0
 };
 
 let dummyBalance = 1000;
 
-app.get('/', (req, res) => res.render('slot', { user: { username: 'Outlaw', balance: dummyBalance } }));
+app.get('/', (req, res) => res.render('slot', { user: { username: 'Juicer', balance: dummyBalance } }));
 
 app.post('/api/spin', (req, res) => {
     let betAmount = gameState.mode === 'BASE' ? 1 : 0;
     if (gameState.mode === 'BASE' && dummyBalance < betAmount) return res.json({ error: "BROKE!" });
     dummyBalance -= betAmount;
 
-    let isDuelSpin = gameState.mode === 'DUEL_SPIN';
+    let isChaosDrop = gameState.mode === 'CHAOS_DROP';
     
     let grid = Array(5).fill(null).map(() => Array(5).fill(null));
     let scatterCount = 0;
     
-    // REGEL: VS und Outlaw NIEMALS gleichzeitig! Wir würfeln vorher, was dieser Spin erlauben darf.
-    let allowedFeature = Math.random() > 0.5 ? 'JUICER' : 'OUTLAW';
-    if (gameState.mode === 'DUSK_DAWN' && !isDuelSpin) allowedFeature = 'OUTLAW'; // Keine normalen VS im blauen Bonus
-    if (isDuelSpin) allowedFeature = 'JUICER';
+    // REGEL: JUICER und BOMBER NIEMALS gleichzeitig auf dem Grid!
+    let allowedFeature = Math.random() > 0.5 ? 'JUICER' : 'BOMBER';
+    if (gameState.mode === 'CHAOS_SPINS' && !isChaosDrop) allowedFeature = 'BOMBER'; 
+    if (isChaosDrop) allowedFeature = 'JUICER';
 
-    let outlawsOnGrid = 0;
+    let bombersOnGrid = 0;
 
     for (let col = 0; col < 5; col++) {
         let colHasFeature = false;
         for (let row = 0; row < 5; row++) {
             let symPool = symbols.filter(s => {
-                if (s.name === 'SCATTER' && gameState.mode === 'DUSK_DAWN') return false; 
+                if (s.name === 'SCATTER' && gameState.mode === 'CHAOS_SPINS') return false; 
                 if (s.name === 'JUICER' && (allowedFeature !== 'JUICER' || colHasFeature)) return false; 
-                if (s.name === 'OUTLAW' && (allowedFeature !== 'OUTLAW' || colHasFeature || outlawsOnGrid >= 2)) return false; 
+                if (s.name === 'BOMBER' && (allowedFeature !== 'BOMBER' || colHasFeature || bombersOnGrid >= 2)) return false; 
                 return true;
             });
 
-            if (gameState.mode === 'WILD_WEST') {
+            if (gameState.mode === 'JUICE_SPINS') {
                 let j = symPool.find(s=>s.name==='JUICER'); if(j) j.weight = 15;
-                let o = symPool.find(s=>s.name==='OUTLAW'); if(o) o.weight = 12;
+                let b = symPool.find(s=>s.name==='BOMBER'); if(b) b.weight = 12;
             }
 
             let totalW = symPool.reduce((sum, sym) => sum + sym.weight, 0);
@@ -94,48 +94,48 @@ app.post('/api/spin', (req, res) => {
 
             grid[row][col] = chosen.name;
             if (chosen.isScatter) scatterCount++;
-            if (chosen.name === 'JUICER' || chosen.name === 'OUTLAW') colHasFeature = true;
-            if (chosen.name === 'OUTLAW') outlawsOnGrid++;
+            if (chosen.name === 'JUICER' || chosen.name === 'BOMBER') colHasFeature = true;
+            if (chosen.name === 'BOMBER') bombersOnGrid++;
         }
     }
 
-    // DuelSpin Guaranteed VS
-    if (isDuelSpin) {
-        let vsToPlace = Math.min(5, gameState.duelSpinsUnlocked + 1); // Spin 1=2VS, 2=3VS, 3=4VS, 4=5VS
-        let cols = [0,1,2,3,4].sort(() => 0.5 - Math.random()).slice(0, vsToPlace);
+    // CHAOS DROP Guaranteed Juicers
+    if (isChaosDrop) {
+        let juicersToPlace = Math.min(5, gameState.chaosDropsUnlocked + 1);
+        let cols = [0,1,2,3,4].sort(() => 0.5 - Math.random()).slice(0, juicersToPlace);
         cols.forEach(c => grid[Math.floor(Math.random()*5)][c] = 'JUICER');
     }
 
-    let outlawsExpanded = [];
-    let vsExpanded = [];
-    let shotsFired = [];
+    let bombersExpanded = [];
+    let juicersExpanded = [];
+    let splattersFired = [];
 
-    // OUTLAW SHOOTING LOGIC
+    // BOMBER SPLATTER LOGIC
     for (let c = 0; c < 5; c++) {
         for (let r = 0; r < 5; r++) {
-            if (grid[r][c] === 'OUTLAW') {
-                let bullets = Math.floor(Math.random() * 6) + 1;
+            if (grid[r][c] === 'BOMBER') {
+                let drops = Math.floor(Math.random() * 6) + 1;
                 let multi = multipliers[Math.floor(Math.random() * multipliers.length)];
                 
                 let availableSpots = [];
                 for(let rr=0; rr<5; rr++) for(let cc=0; cc<5; cc++) {
-                    if (cc !== c && grid[rr][cc] !== 'WILD' && grid[rr][cc] !== 'OUTLAW') availableSpots.push({r:rr, c:cc});
+                    if (cc !== c && grid[rr][cc] !== 'WILD' && grid[rr][cc] !== 'BOMBER') availableSpots.push({r:rr, c:cc});
                 }
-                availableSpots = availableSpots.sort(() => 0.5 - Math.random()).slice(0, bullets);
+                availableSpots = availableSpots.sort(() => 0.5 - Math.random()).slice(0, drops);
                 availableSpots.forEach(spot => {
                     grid[spot.r][spot.c] = 'WILD';
-                    shotsFired.push({r: spot.r, c: spot.c});
+                    splattersFired.push({r: spot.r, c: spot.c});
                 });
 
-                outlawsExpanded.push({ col: c, multi: multi, bullets: bullets });
-                for(let i=0; i<5; i++) grid[i][c] = 'WILD_OUTLAW'; 
+                bombersExpanded.push({ col: c, multi: multi, drops: drops, origin: {r, c} });
+                for(let i=0; i<5; i++) grid[i][c] = 'WILD_BOMBER'; 
                 
-                if (gameState.mode === 'DUSK_DAWN') {
-                    gameState.bulletsCollected += bullets;
-                    while (gameState.bulletsCollected >= 6) {
-                        gameState.bulletsCollected -= 6;
-                        gameState.duelSpinsUnlocked++;
-                        gameState.duelSpinsQueue++;
+                if (gameState.mode === 'CHAOS_SPINS') {
+                    gameState.dropsCollected += drops;
+                    while (gameState.dropsCollected >= 6) {
+                        gameState.dropsCollected -= 6;
+                        gameState.chaosDropsUnlocked++;
+                        gameState.chaosDropsQueue++;
                         gameState.freeSpinsLeft += 3;
                     }
                 }
@@ -143,7 +143,7 @@ app.post('/api/spin', (req, res) => {
         }
     }
 
-    // VS WIN-CHECK LOGIC (Tease!)
+    // JUICER WIN-CHECK LOGIC (Tease!)
     let activeJuicers = [];
     for(let c=0; c<5; c++) {
         for(let r=0; r<5; r++) if(grid[r][c] === 'JUICER') activeJuicers.push(c);
@@ -174,8 +174,8 @@ app.post('/api/spin', (req, res) => {
             let m1 = multipliers[Math.floor(Math.random() * multipliers.length)];
             let m2 = multipliers[Math.floor(Math.random() * multipliers.length)];
             let winner = Math.random() > 0.5 ? m1 : m2;
-            vsExpanded.push({ col: c, multi: winner, duel: [m1, m2] });
-            for(let r=0; r<5; r++) grid[r][c] = 'WILD_VS';
+            juicersExpanded.push({ col: c, multi: winner });
+            for(let r=0; r<5; r++) grid[r][c] = 'WILD_JUICER';
         });
     }
 
@@ -191,8 +191,8 @@ app.post('/api/spin', (req, res) => {
             if (!target && !isW) target = sym;
             if (isW || sym === target) { 
                 matchCount++; 
-                if (sym === 'WILD_OUTLAW') { let o = outlawsExpanded.find(x=>x.col === c); if(o && !lineMultis.includes(o.multi)) lineMultis.push(o.multi); }
-                if (sym === 'WILD_VS') { let v = vsExpanded.find(x=>x.col === c); if(v && !lineMultis.includes(v.multi)) lineMultis.push(v.multi); }
+                if (sym === 'WILD_BOMBER') { let b = bombersExpanded.find(x=>x.col === c); if(b && !lineMultis.includes(b.multi)) lineMultis.push(b.multi); }
+                if (sym === 'WILD_JUICER') { let v = juicersExpanded.find(x=>x.col === c); if(v && !lineMultis.includes(v.multi)) lineMultis.push(v.multi); }
             } else break;
         }
 
@@ -213,39 +213,47 @@ app.post('/api/spin', (req, res) => {
 
     if (gameState.mode === 'BASE') {
         if (scatterCount === 3) {
-            gameState.mode = 'WILD_WEST'; gameState.freeSpinsLeft = 10; triggeredBonus = 'WILD_WEST';
+            gameState.mode = 'JUICE_SPINS'; gameState.freeSpinsLeft = 10; triggeredBonus = 'JUICE_SPINS';
         } else if (scatterCount >= 4) {
-            gameState.mode = 'DUSK_DAWN'; gameState.freeSpinsLeft = 10;
-            gameState.bulletsCollected = 0; gameState.duelSpinsUnlocked = 0; gameState.duelSpinsQueue = 0;
-            triggeredBonus = 'DUSK_DAWN';
+            gameState.mode = 'CHAOS_SPINS'; gameState.freeSpinsLeft = 10;
+            gameState.dropsCollected = 0; gameState.chaosDropsUnlocked = 0; gameState.chaosDropsQueue = 0;
+            triggeredBonus = 'CHAOS_SPINS';
         }
-    } else if (gameState.mode === 'WILD_WEST') {
+    } else if (gameState.mode === 'JUICE_SPINS') {
         if (scatterCount === 2) gameState.freeSpinsLeft += 2;
         if (scatterCount >= 3) gameState.freeSpinsLeft += 4;
     }
 
     let nextAction = 'SPIN';
     if (gameState.mode !== 'BASE' && oldMode !== 'BASE') {
-        if (isDuelSpin) {
-            gameState.duelSpinsQueue--;
-            if (gameState.duelSpinsQueue === 0) gameState.mode = 'DUSK_DAWN';
-        } else if (gameState.duelSpinsQueue > 0) {
-            gameState.mode = 'DUEL_SPIN'; nextAction = 'DUEL_SPIN';
+        if (isChaosDrop) {
+            gameState.chaosDropsQueue--;
+            if (gameState.chaosDropsQueue === 0) gameState.mode = 'CHAOS_SPINS';
+        } else if (gameState.chaosDropsQueue > 0) {
+            gameState.mode = 'CHAOS_DROP'; nextAction = 'CHAOS_DROP';
         } else {
             gameState.freeSpinsLeft--;
         }
-        if (gameState.freeSpinsLeft <= 0 && gameState.duelSpinsQueue <= 0) {
+        if (gameState.freeSpinsLeft <= 0 && gameState.chaosDropsQueue <= 0) {
             nextAction = 'END_BONUS'; gameState.mode = 'BASE';
         }
     }
 
     res.json({
-        grid: grid, win: totalWin, scatters: scatterCount, outlaws: outlawsExpanded, shotsFired: shotsFired,
-        vsJuicers: vsExpanded, newBalance: dummyBalance, bonusTriggered: triggeredBonus, spinsLeft: gameState.freeSpinsLeft,
-        totalBonusWin: gameState.totalBonusWin, nextAction: nextAction,
-        bullets: gameState.bulletsCollected // Für das UI
+        grid: grid, 
+        win: totalWin, 
+        scatters: scatterCount, 
+        bombers: bombersExpanded, 
+        splatters: splattersFired,
+        juicers: juicersExpanded, 
+        newBalance: dummyBalance, 
+        bonusTriggered: triggeredBonus, 
+        spinsLeft: gameState.freeSpinsLeft,
+        totalBonusWin: gameState.totalBonusWin, 
+        nextAction: nextAction,
+        drops: gameState.dropsCollected
     });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🎰 The Beast runs on ${PORT}`));
+app.listen(PORT, () => console.log(`🍊 CHAOS ORANGE läuft auf Port ${PORT}`));
