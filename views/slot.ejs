@@ -102,8 +102,8 @@
         }
         #msg-overlay.active { opacity: 1; pointer-events: all; }
         .msg-text {
-            font-family: 'Black Ops One'; font-size: 90px; color: var(--accent-main);
-            text-transform: uppercase; text-shadow: 0 10px 50px #ff0000;
+            font-family: 'Black Ops One'; font-size: 80px; color: var(--accent-main);
+            text-transform: uppercase; text-shadow: 0 10px 40px #ff0000;
             transform: scale(0.5); transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             text-align: center; line-height: 1.1;
         }
@@ -172,7 +172,7 @@
         const OFFSET_X = 140; 
         const OFFSET_Y = 75;  
 
-        // UI Definitionen der Symbole
+        // UI Definitionen der Symbole (Für Fallbacks und Farben)
         const styleMap = {
             'ORANGE':  { t: 'ORG', c: '#ff5500', p: true },
             'ROLEX':   { t: 'RLX', c: '#ffcc00', p: true },
@@ -182,8 +182,8 @@
             'K':       { t: 'K', c: '#dddddd' },
             'Q':       { t: 'Q', c: '#bbbbbb' },
             'J':       { t: 'J', c: '#999999' },
-            'BOMB':    { t: 'BOMB', c: '#ff0044', stroke: '#ffffff' }, 
-            'SCATTER': { t: 'FS', c: '#ffcc00', stroke: '#ff5500' } 
+            'BOMB':    { t: 'BOMB', c: '#ff0044' }, 
+            'SCATTER': { t: 'FS', c: '#ffcc00' } 
         };
 
         let isAutoPlay = false;
@@ -205,14 +205,42 @@
         class GameScene extends Phaser.Scene {
             constructor() { super('GameScene'); }
 
+            preload() {
+                // ========================================================
+                // 🖼️ HIER EIGENE BILDER LADEN!
+                // Entferne die "//" vor "this.load.image", sobald du die 
+                // Bilder in den Ordner /public/images/symbols/ gelegt hast.
+                // ========================================================
+                
+                // this.load.image('ORANGE', '/images/symbols/orange.png');
+                // this.load.image('ROLEX', '/images/symbols/rolex.png');
+                // this.load.image('CASH', '/images/symbols/cash.png');
+                // this.load.image('ENERGY', '/images/symbols/energy.png');
+                // this.load.image('A', '/images/symbols/ace.png');
+                // this.load.image('K', '/images/symbols/king.png');
+                // this.load.image('Q', '/images/symbols/queen.png');
+                // this.load.image('J', '/images/symbols/jack.png');
+                // this.load.image('BOMB', '/images/symbols/bomb.png');
+                // this.load.image('SCATTER', '/images/symbols/scatter.png');
+            }
+
             create() {
-                // Generiere Partikel-Glows (Orange Juice Explosion)
+                // Generiere Partikel für Explosionen
                 let g = this.make.graphics({x:0, y:0, add:false});
                 g.fillStyle(0xff5500, 1); g.fillCircle(8, 8, 8); g.generateTexture('p_orange', 16, 16);
                 
+                // AUTOMATISCHE FALLBACK-GRAFIKEN generieren 
+                // (Wird genutzt, falls du noch keine PNGs geladen hast)
+                Object.keys(styleMap).forEach(key => {
+                    let fallbackGraphic = this.make.graphics({x:0, y:0, add:false});
+                    fallbackGraphic.fillStyle(parseInt(styleMap[key].c.replace('#','0x')), 1);
+                    fallbackGraphic.fillRoundedRect(0, 0, 100, 100, 16);
+                    fallbackGraphic.generateTexture('fallback_' + key, 100, 100);
+                });
+
                 this.bgGlow = this.add.rectangle(500, 400, 1000, 800, 0xff2200).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
 
-                // Raster Hintergründe (Damit es edel aussieht)
+                // Raster Hintergründe 
                 for(let c=0; c<COLS; c++) {
                     for(let r=0; r<ROWS; r++) {
                         this.add.rectangle(OFFSET_X + c*SYMBOL_W, OFFSET_Y + r*SYMBOL_H, SYMBOL_W-8, SYMBOL_H-8, 0x0f151c)
@@ -222,19 +250,18 @@
 
                 this.gridContainer = this.add.container(OFFSET_X, OFFSET_Y);
                 
-                // WICHTIG: Perfekte Maske! Sie deckt exakt den Bereich der Container ab.
+                // Maske für sauberes Hereinfallen
                 const mask = this.make.graphics();
                 mask.fillStyle(0xffffff);
                 mask.fillRect(OFFSET_X - SYMBOL_W/2, OFFSET_Y - SYMBOL_H/2, SYMBOL_W * COLS, SYMBOL_H * ROWS);
                 this.gridContainer.setMask(mask.createGeometryMask());
 
-                // State: Hier speichern wir unsere sichtbaren Symbole [col][row]
                 this.displayGrid = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
                 
-                // Initiale Dummy Symbole füllen
+                // Dummy Initialisierung
                 for(let c=0; c<COLS; c++) {
                     for(let r=0; r<ROWS; r++) {
-                        this.displayGrid[c][r] = this.createSymbol(c, r, 'A');
+                        this.displayGrid[c][r] = this.createSymbol(c, r, 'J');
                     }
                 }
 
@@ -246,28 +273,38 @@
                 let s = styleMap[name] || styleMap['J'];
                 let container = this.add.container(c * SYMBOL_W, r * SYMBOL_H);
                 
-                // Hier könntest du später this.add.image() einbauen
-                let text = this.add.text(0, 0, s.t, {
-                    fontFamily: 'Black Ops One, Impact', fontSize: s.p ? '45px' : '35px', 
-                    color: s.c, stroke: s.stroke || '#000', strokeThickness: 5
-                }).setOrigin(0.5);
-                container.add(text);
+                // 🪄 DIE MAGIE: 
+                // Nutzt das ECHTE BILD wenn geladen, ansonsten nimmt er den bunten FALLBACK-BLOCK!
+                let imgKey = this.textures.exists(name) ? name : 'fallback_' + name;
+                let img = this.add.image(0, 0, imgKey);
+                
+                // Größe anpassen
+                img.setDisplaySize(SYMBOL_W - 16, SYMBOL_H - 16);
+                container.add(img);
 
-                // Bomben Style
+                // Falls es ein Fallback ist, schreiben wir den Text drüber, damit du weißt was es ist
+                if (!this.textures.exists(name)) {
+                    let fallbackText = this.add.text(0, 0, s.t, {
+                        fontFamily: 'Black Ops One, Impact', fontSize: s.p ? '35px' : '28px', 
+                        color: '#fff', stroke: '#000', strokeThickness: 5
+                    }).setOrigin(0.5);
+                    container.add(fallbackText);
+                }
+
+                // Bomb Multiplier Overlay
                 if (name === 'BOMB' && multi) {
-                    text.setFontSize('30px');
                     let multiTxt = this.add.text(0, 25, `${multi}x`, {
                         fontFamily: 'Black Ops One', fontSize: '24px', color: '#fff', stroke: '#000', strokeThickness: 4
                     }).setOrigin(0.5);
                     container.add(multiTxt);
                     
-                    let glow = this.add.circle(0, 0, 45, 0xff0044, 0.4).setBlendMode(Phaser.BlendModes.ADD);
-                    this.tweens.add({ targets: glow, scale: 1.2, alpha: 0.1, yoyo: true, repeat: -1, duration: 600 });
-                    container.addAt(glow, 0);
+                    let glow = this.add.circle(0, 0, 45, 0xff0044, 0.5).setBlendMode(Phaser.BlendModes.ADD);
+                    this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.1, yoyo: true, repeat: -1, duration: 600 });
+                    container.addAt(glow, 0); // Packt Glow hinter das Bild
                 }
 
                 this.gridContainer.add(container);
-                return { obj: container, name: name, multi: multi };
+                return { obj: container, img: img, name: name, multi: multi };
             }
 
             showMsg(text, color, shake = true) {
@@ -308,20 +345,17 @@
             async playCascades(data) {
                 let rollingWin = 0;
 
-                // Spiele jede Kaskade optisch ab
                 for(let i = 0; i < data.cascades.length; i++) {
                     let step = data.cascades[i];
 
-                    // 1. Grid updaten
                     if (i === 0) {
                         await this.spawnInitialGrid(step.grid);
                     } else {
                         await this.applyGravityVisuals(step.grid);
                     }
 
-                    // 2. Gewinn-Animation
                     if (step.wins.length > 0) {
-                        await new Promise(res => setTimeout(res, 400)); // Lesezeit für Spieler
+                        await new Promise(res => setTimeout(res, 400)); 
                         await this.explodeSymbols(step.removed);
 
                         rollingWin += step.stepWin;
@@ -331,7 +365,7 @@
                     }
                 }
 
-                // 3. Bomben Multiplikator am Ende anwenden!
+                // BOMB MULTIPLIERS
                 if (data.totalBaseWin > 0 && data.bombs.length > 0) {
                     await new Promise(res => setTimeout(res, 400));
                     
@@ -340,7 +374,7 @@
                         totalBombValue += b.multi;
                         let sym = this.displayGrid[b.c][b.r];
                         if(sym) {
-                            this.tweens.add({ targets: sym.obj, scale: 1.5, yoyo: true, duration: 400 });
+                            this.tweens.add({ targets: sym.obj, scale: 1.4, yoyo: true, duration: 400 });
                         }
                     });
                     
@@ -348,9 +382,8 @@
                     this.cameras.main.shake(600, 0.02);
                     await new Promise(res => setTimeout(res, 1200));
 
-                    // Fetter Roll Up
                     rollNum(uiWin, rollingWin, data.finalSpinWin, 1500);
-                    uiWin.style.color = "var(--accent-main)"; // Orange
+                    uiWin.style.color = "var(--accent-main)"; 
                     setTimeout(() => uiWin.style.color = "var(--toxic-green)", 2000);
                     
                     await new Promise(res => setTimeout(res, 2000));
@@ -359,7 +392,7 @@
                     await new Promise(res => setTimeout(res, 1200));
                 }
 
-                // 4. Free Spins Auslösung & State
+                // FREE SPINS AUSLÖSUNG
                 if (data.bonusTriggered) {
                     this.showMsg("JUICE FEST\nFREE SPINS", "#ffcc00");
                     this.bgGlow.setFillStyle(0xff5500);
@@ -379,7 +412,6 @@
                     globalMulti.innerText = "x" + data.globalMultiplier;
                 }
 
-                // Nächster Schritt (Auto Spin oder Ende)
                 if (data.nextAction === 'END_BONUS') {
                     this.showMsg(`TOTAL WIN\n${data.totalBonusWin.toFixed(2)} €`, "var(--toxic-green)");
                     this.tweens.add({ targets: this.bgGlow, alpha: 0, duration: 1000 }); 
@@ -400,7 +432,6 @@
                 }
             }
 
-            // NEU: Initialer Spin (löscht alles und droppt wellenartig)
             async spawnInitialGrid(targetGrid) {
                 let tweens = [];
                 for(let c=0; c<COLS; c++) {
@@ -415,7 +446,7 @@
                         tweens.push(new Promise(res => {
                             this.tweens.add({
                                 targets: newSym.obj, y: r * SYMBOL_H,
-                                duration: 400 + (c * 80), // Welle von Links nach Rechts
+                                duration: 400 + (c * 80), 
                                 ease: 'Bounce.easeOut',
                                 onComplete: res
                             });
@@ -425,21 +456,19 @@
                 await Promise.all(tweens);
             }
 
-            // NEU: Echte Gravity. Überlebende fallen runter, neue Spawnen oben.
             async applyGravityVisuals(targetGrid) {
                 let tweens = [];
                 let newDisplayGrid = Array(COLS).fill(null).map(()=>Array(ROWS).fill(null));
 
                 for (let c=0; c<COLS; c++) {
-                    let writeRow = ROWS - 1; // Start von ganz unten
+                    let writeRow = ROWS - 1; 
 
-                    // 1. Überlebende nach unten schieben
                     for (let r=ROWS-1; r>=0; r--) {
                         if (this.displayGrid[c][r] !== null) {
                             let sym = this.displayGrid[c][r];
                             newDisplayGrid[c][writeRow] = sym;
                             
-                            if (writeRow !== r) { // Fällt nach unten
+                            if (writeRow !== r) { 
                                 tweens.push(new Promise(res => {
                                     this.tweens.add({
                                         targets: sym.obj, y: writeRow * SYMBOL_H,
@@ -451,12 +480,10 @@
                         }
                     }
                     
-                    // 2. Leere Slots (writeRow und darüber) mit neuen füllen
                     for (let r = writeRow; r >= 0; r--) {
                         let tData = targetGrid[c][r];
                         let newSym = this.createSymbol(c, r, tData.name, tData.multi);
                         
-                        // Setze sie hoch außer sicht (Maske versteckt sie)
                         newSym.obj.y = -200 - ((writeRow - r) * 100); 
                         newDisplayGrid[c][r] = newSym;
                         
@@ -472,13 +499,11 @@
                 if(tweens.length > 0) await Promise.all(tweens);
             }
 
-            // Explosion der Gewinn-Symbole
             async explodeSymbols(removedPositions) {
                 let tweens = [];
                 removedPositions.forEach(pos => {
                     let sym = this.displayGrid[pos.c][pos.r];
                     if(sym && sym.obj) {
-                        // Partikel Pop
                         let ex = this.add.particles(OFFSET_X + pos.c*SYMBOL_W, OFFSET_Y + pos.r*SYMBOL_H, 'p_orange', {
                             speed: 200, scale: {start:1.5, end:0}, lifespan: 300, blendMode: 'ADD', emitting: false
                         });
