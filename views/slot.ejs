@@ -3,179 +3,129 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CHAOS ORANGE | Juicer Edition</title>
+    <title>CHAOS ORANGE | Cascades</title>
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* =========================================
-           CHAOS ORANGE DESIGN - EXTREME
+           UI STYLING
            ========================================= */
-        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@400;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@900&display=swap');
 
         :root {
-            --bg-dark: #0a0500;
-            --panel-bg: #120700;
+            --bg-dark: #050a0f;
+            --panel-bg: #0b131a;
             --accent-main: #ff5500; 
-            --accent-glow: rgba(255, 85, 0, 0.6);
-            --toxic-green: #00ff88;
-            --text-main: #ffccaa;
+            --toxic-green: #00e701;
+            --text-main: #8a9ba8;
         }
 
         body {
             background-color: var(--bg-dark);
-            margin: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            overflow: hidden;
-            font-family: 'Inter', sans-serif;
-            background: radial-gradient(circle at center, #240b00 0%, #000000 100%);
+            margin: 0; display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at center, #1a0800 0%, #000 100%);
         }
 
         #game-wrapper {
-            position: relative;
-            width: 1000px;
-            height: 850px;
-            background: #000;
-            border-radius: 20px;
-            box-shadow: 0 0 80px rgba(255, 85, 0, 0.15), 0 0 0 2px rgba(255, 85, 0, 0.3);
+            position: relative; width: 1000px; height: 850px;
+            background: #000; border-radius: 20px;
+            box-shadow: 0 0 50px rgba(255, 85, 0, 0.1), 0 0 0 2px rgba(255, 255, 255, 0.05);
             overflow: hidden;
-            transition: box-shadow 0.3s ease;
-        }
-
-        /* Wenn der Teaser feuert, bebt die Maschine visuell! */
-        #game-wrapper.teaser-active {
-            box-shadow: 0 0 100px rgba(255, 0, 68, 0.8), 0 0 0 4px #ff0044;
-            animation: wrapperShake 0.1s infinite;
-        }
-
-        @keyframes wrapperShake {
-            0% { transform: translate(1px, 1px) rotate(0deg); }
-            50% { transform: translate(-1px, -2px) rotate(-1deg); }
-            100% { transform: translate(-2px, 1px) rotate(1deg); }
         }
 
         #phaser-canvas { width: 100%; height: 750px; }
 
         /* =========================================
-           UI CONTROL BAR
+           TOP HUD (Multipliers & Free Spins)
+           ========================================= */
+        #top-hud {
+            position: absolute; top: 20px; left: 20px; right: 20px;
+            display: flex; justify-content: space-between; z-index: 100;
+            pointer-events: none;
+        }
+        .hud-box {
+            background: rgba(0,0,0,0.8); border: 2px solid rgba(255,255,255,0.1);
+            padding: 10px 20px; border-radius: 12px; backdrop-filter: blur(5px);
+            text-align: center; display: none; transform: scale(0.9); transition: 0.3s;
+        }
+        .hud-box.active { display: block; transform: scale(1); }
+        .hud-label { color: var(--text-main); font-size: 12px; letter-spacing: 2px; }
+        .hud-value { font-family: 'Black Ops One'; font-size: 28px; color: var(--toxic-green); }
+        .hud-multi { color: var(--accent-main); }
+
+        /* =========================================
+           BOTTOM CONTROL BAR
            ========================================= */
         #control-bar {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 100px;
-            background: var(--panel-bg);
-            border-top: 3px solid var(--accent-main);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 40px;
-            box-sizing: border-box;
-            z-index: 100;
+            position: absolute; bottom: 0; width: 100%; height: 100px;
+            background: var(--panel-bg); border-top: 2px solid rgba(255,255,255,0.05);
+            display: flex; justify-content: space-between; align-items: center; padding: 0 30px;
+            box-sizing: border-box; z-index: 100;
         }
 
         .panel-box {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            background: rgba(255, 85, 0, 0.05);
-            padding: 10px 20px;
-            border-radius: 8px;
-            min-width: 150px;
-            border: 1px solid rgba(255, 85, 0, 0.2);
+            background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px;
+            min-width: 140px; border: 1px solid rgba(255,255,255,0.02); display: flex; flex-direction: column;
         }
 
-        .panel-label { color: var(--text-main); font-size: 11px; text-transform: uppercase; font-weight: 900; letter-spacing: 2px; margin-bottom: 5px; }
-        .panel-value { color: #fff; font-size: 22px; font-weight: 900; font-family: 'Black Ops One', system-ui; letter-spacing: 1px; }
+        .panel-label { color: var(--text-main); font-size: 11px; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }
+        .panel-value { color: #fff; font-size: 22px; font-weight: 900; }
         
-        .win-box { background: rgba(0, 255, 136, 0.05); border-color: rgba(0, 255, 136, 0.3); text-align: center; transition: all 0.2s; }
-        .win-value { color: var(--toxic-green); font-size: 28px; text-shadow: 0 0 15px rgba(0, 255, 136, 0.5); }
+        .win-box { background: rgba(0, 231, 1, 0.05); border-color: rgba(0, 231, 1, 0.2); text-align: center; min-width: 200px;}
+        .win-value { color: var(--toxic-green); font-size: 30px; text-shadow: 0 0 15px rgba(0, 231, 1, 0.4); }
 
-        /* Spin Button */
+        .btn-buy {
+            background: transparent; border: 2px solid var(--accent-main); color: var(--accent-main);
+            font-weight: 900; padding: 10px 15px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+        }
+        .btn-buy:hover { background: var(--accent-main); color: #000; box-shadow: 0 0 15px var(--accent-glow); }
+
         #spin-btn {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ff8800, #ff2200);
-            border: 3px solid #fff;
-            color: #fff;
-            font-size: 28px;
-            cursor: pointer;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            box-shadow: 0 0 30px var(--accent-glow);
-            transition: all 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            outline: none;
+            width: 75px; height: 75px; border-radius: 50%;
+            background: var(--toxic-green); border: none; color: #000; font-size: 26px;
+            cursor: pointer; display: flex; justify-content: center; align-items: center;
+            box-shadow: 0 0 20px rgba(0, 231, 1, 0.4); transition: 0.1s; outline: none;
         }
-        #spin-btn:hover { transform: scale(1.15); box-shadow: 0 0 50px var(--accent-main); }
+        #spin-btn:hover { transform: scale(1.1); background: #fff; }
         #spin-btn:active { transform: scale(0.9); }
-        #spin-btn:disabled { background: #331100; border-color: #555; color: #555; cursor: not-allowed; box-shadow: none; transform: scale(1); }
-
-        /* Fast Spin Toggle */
-        .fast-spin-toggle {
-            color: #888; cursor: pointer; font-size: 24px; transition: 0.3s;
-        }
-        .fast-spin-toggle.active { color: var(--accent-main); text-shadow: 0 0 10px var(--accent-main); }
+        #spin-btn:disabled { background: #222; color: #555; box-shadow: none; transform: scale(1); cursor: not-allowed; }
 
         /* =========================================
            OVERLAYS
            ========================================= */
-        #drops-counter {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 85, 0, 0.2);
-            border: 2px solid var(--accent-main);
-            padding: 10px 20px;
-            border-radius: 12px;
-            color: #fff;
-            font-family: 'Black Ops One';
-            font-size: 20px;
-            z-index: 100;
-            display: none;
-            box-shadow: 0 0 25px var(--accent-glow);
-            backdrop-filter: blur(10px);
-        }
-
         #msg-overlay {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 750px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            background: rgba(20, 0, 0, 0.85);
-            z-index: 200;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-            backdrop-filter: blur(8px);
+            position: absolute; top: 0; left: 0; width: 100%; height: 750px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(0, 0, 0, 0.8); z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s;
         }
         #msg-overlay.active { opacity: 1; pointer-events: all; }
-
         .msg-text {
-            font-family: 'Black Ops One';
-            font-size: 90px;
-            color: var(--accent-main);
-            text-transform: uppercase;
-            text-shadow: 0 10px 50px #ff0000, 0 0 10px #fff;
-            transform: scale(0.1) rotate(-10deg);
-            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            line-height: 1;
-            text-align: center;
+            font-family: 'Black Ops One'; font-size: 80px; color: var(--accent-main);
+            text-transform: uppercase; text-shadow: 0 10px 40px #ff0000;
+            transform: scale(0.5); transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center; line-height: 1.1;
         }
-        #msg-overlay.active .msg-text { transform: scale(1) rotate(0deg); }
+        #msg-overlay.active .msg-text { transform: scale(1); }
     </style>
 </head>
 <body>
 
     <div id="game-wrapper">
+        <div id="top-hud">
+            <div class="hud-box" id="fs-hud">
+                <div class="hud-label">FREE SPINS</div>
+                <div class="hud-value" id="fs-count">0</div>
+            </div>
+            <div class="hud-box" id="multi-hud">
+                <div class="hud-label">TOTAL MULTIPLIER</div>
+                <div class="hud-value hud-multi" id="global-multi">x0</div>
+            </div>
+        </div>
+
         <div id="phaser-canvas"></div>
+        
         <div id="msg-overlay"><div class="msg-text" id="main-msg">CHAOS!</div></div>
-        <div id="drops-counter"><i class="fas fa-tint me-2"></i> DROPS: 0/6</div>
 
         <div id="control-bar">
             <div class="panel-box">
@@ -183,14 +133,14 @@
                 <span class="panel-value"><span id="ui-balance"><%= user.balance.toFixed(2) %></span> €</span>
             </div>
             
-            <div class="panel-box win-box" id="win-box-container">
-                <span class="panel-label" id="ui-win-label">Win</span>
+            <div class="panel-box win-box">
+                <span class="panel-label">Cascade Win</span>
                 <span class="panel-value win-value" id="ui-win">0.00 €</span>
             </div>
 
-            <div class="d-flex gap-3 align-items-center" style="display: flex; align-items: center; gap: 30px;">
-                <i class="fas fa-bolt fast-spin-toggle" id="fastSpinBtn" title="Turbo Spin"></i>
-                <div class="panel-box" style="text-align: center; min-width: 100px;">
+            <div style="display: flex; gap: 15px; align-items: center;">
+                <button class="btn-buy" id="buy-btn">BUY 100x</button>
+                <div class="panel-box" style="text-align: center; min-width: 80px;">
                     <span class="panel-label">Bet</span>
                     <span class="panel-value">1.00 €</span>
                 </div>
@@ -202,61 +152,49 @@
     <script>
         const uiBalance = document.getElementById('ui-balance');
         const uiWin = document.getElementById('ui-win');
-        const uiWinLabel = document.getElementById('ui-win-label');
-        const winBoxContainer = document.getElementById('win-box-container');
         const spinBtn = document.getElementById('spin-btn');
+        const buyBtn = document.getElementById('buy-btn');
         const msgOverlay = document.getElementById('msg-overlay');
         const mainMsg = document.getElementById('main-msg');
-        const dropsCounter = document.getElementById('drops-counter');
-        const fastSpinBtn = document.getElementById('fastSpinBtn');
-        const wrapper = document.getElementById('game-wrapper');
+        
+        const fsHud = document.getElementById('fs-hud');
+        const fsCount = document.getElementById('fs-count');
+        const multiHud = document.getElementById('multi-hud');
+        const globalMulti = document.getElementById('global-multi');
 
-        const REEL_COUNT = 5; 
-        const ROW_COUNT = 5;
-        const SYMBOL_W = 140; 
+        // Grid Dimensions (6x5)
+        const COLS = 6; 
+        const ROWS = 5;
+        const SYMBOL_W = 120; 
         const SYMBOL_H = 120; 
-        const REEL_OFFSET_X = 150; 
-        const REEL_OFFSET_Y = 60;  
+        const OFFSET_X = 140; 
+        const OFFSET_Y = 75;  
 
-        const symbolStyles = {
-            'ORANGE':  { text: 'ORG', color: '#ff6600', isPremium: true },
-            'ROLEX':   { text: 'RLX', color: '#ffcc00', isPremium: true },
-            'BÜNDEL':  { text: 'CASH', color: '#00ff44', isPremium: true },
-            'ENERGY':  { text: 'NRG', color: '#00ccff', isPremium: true },
-            'CAP':     { text: 'CAP', color: '#ff0088', isPremium: true },
-            'ACE':     { text: 'A', color: '#888888' },
-            'KING':    { text: 'K', color: '#888888' },
-            'QUEEN':   { text: 'Q', color: '#888888' },
-            'JACK':    { text: 'J', color: '#888888' },
-            'TEN':     { text: '10', color: '#888888' },
-            'WILD':    { text: 'WILD', color: '#ffffff', stroke: '#ff0000' }, 
-            'JUICER':  { text: 'BLEND', color: '#555555' }, 
-            'BOMBER':  { text: 'BOMB', color: '#ff0000' }, 
-            'SCATTER': { text: 'FS', color: '#ffcc00', stroke: '#ff5500' } 
+        // UI Farben
+        const styleMap = {
+            'ORANGE':  { t: 'ORG', c: '#ff5500', p: true },
+            'ROLEX':   { t: 'RLX', c: '#ffcc00', p: true },
+            'CASH':    { t: 'CASH', c: '#00ff44', p: true },
+            'ENERGY':  { t: 'NRG', c: '#00ccff', p: true },
+            'A':       { t: 'A', c: '#ffffff' },
+            'K':       { t: 'K', c: '#dddddd' },
+            'Q':       { t: 'Q', c: '#bbbbbb' },
+            'J':       { t: 'J', c: '#999999' },
+            'BOMB':    { t: 'BOMB', c: '#ff0044', stroke: '#ffffff' }, 
+            'SCATTER': { t: 'FS', c: '#ffcc00', stroke: '#ff5500' } 
         };
-        const symbolKeys = Object.keys(symbolStyles).filter(k => k !== 'WILD' && !k.includes('WILD_'));
 
         let isAutoPlay = false;
-        let isFastSpin = false;
+        let isFreeSpins = false;
 
-        fastSpinBtn.addEventListener('click', () => {
-            isFastSpin = !isFastSpin;
-            fastSpinBtn.classList.toggle('active');
-        });
-
-        // HILFSFUNKTION: Fließendes Hochzählen für Gewinne
-        function rollNumber(element, start, end, duration) {
-            let startTimestamp = null;
-            const step = (timestamp) => {
-                if (!startTimestamp) startTimestamp = timestamp;
-                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-                // Ease out Expo für das Casino-Feeling
-                const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-                const current = start + easeProgress * (end - start);
-                element.innerText = current.toFixed(2) + " €";
-                if (progress < 1) {
-                    window.requestAnimationFrame(step);
-                }
+        function rollNum(el, start, end, duration) {
+            let startT = null;
+            const step = (t) => {
+                if(!startT) startT = t;
+                let prog = Math.min((t - startT) / duration, 1);
+                let ease = prog === 1 ? 1 : 1 - Math.pow(2, -10 * prog);
+                el.innerText = (start + ease * (end - start)).toFixed(2) + " €";
+                if(prog < 1) window.requestAnimationFrame(step);
             };
             window.requestAnimationFrame(step);
         }
@@ -265,345 +203,251 @@
             constructor() { super('GameScene'); }
 
             create() {
-                // Dynamische Partikel-Texturen
+                // Particles
                 let g = this.make.graphics({x:0, y:0, add:false});
-                g.fillStyle(0xff5500, 1); g.fillCircle(8, 8, 8); g.generateTexture('juice_drop', 16, 16);
+                g.fillStyle(0xff5500, 1); g.fillCircle(8, 8, 8); g.generateTexture('p_orange', 16, 16);
                 
-                let scatterG = this.make.graphics({x:0, y:0, add:false});
-                scatterG.fillStyle(0xffcc00, 1); scatterG.fillCircle(4, 4, 4); scatterG.generateTexture('scatter_spark', 8, 8);
+                this.bgGlow = this.add.rectangle(500, 400, 1000, 800, 0xff2200).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
 
-                this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0xff2200).setAlpha(0);
-                this.bonusBg.setBlendMode(Phaser.BlendModes.ADD);
+                // Grid Container
+                this.gridContainer = this.add.container(OFFSET_X, OFFSET_Y);
+                
+                // Maske, damit Symbole nicht "oben" rausschauen beim reinfallen
+                const mask = this.make.graphics();
+                mask.fillStyle(0xffffff);
+                mask.fillRect(OFFSET_X - SYMBOL_W/2, OFFSET_Y - SYMBOL_H/2, SYMBOL_W * COLS, SYMBOL_H * ROWS);
+                this.gridContainer.setMask(mask.createGeometryMask());
 
-                this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
-                this.reels = [];
-
-                // Walzen-Hintergründe
-                for (let col = 0; col < REEL_COUNT; col++) {
-                    let bg = this.add.rectangle(
-                        REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), 
-                        REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, 
-                        SYMBOL_W - 10, 
-                        SYMBOL_H * ROW_COUNT, 
-                        0x1a0800 
-                    ).setOrigin(0.5).setStrokeStyle(2, 0x331100);
-                    this.reelsContainer.add(bg);
+                // Background Matrix
+                for(let c=0; c<COLS; c++) {
+                    for(let r=0; r<ROWS; r++) {
+                        this.add.rectangle(OFFSET_X + c*SYMBOL_W, OFFSET_Y + r*SYMBOL_H, SYMBOL_W-8, SYMBOL_H-8, 0x0f151c)
+                            .setOrigin(0.5).setStrokeStyle(1, 0x1a2430);
+                    }
                 }
 
-                const maskGraphics = this.make.graphics();
-                maskGraphics.fillStyle(0xffffff); 
-                maskGraphics.fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_W * REEL_COUNT, SYMBOL_H * ROW_COUNT);
-                const globalMask = maskGraphics.createGeometryMask();
-                this.reelsContainer.setMask(globalMask);
-
-                for (let col = 0; col < REEL_COUNT; col++) {
-                    const reelData = { 
-                        container: this.add.container(col * SYMBOL_W, 0), 
-                        symbols: [], isSpinning: false, vsOverlay: null,
-                        teaserGlow: this.add.rectangle(col * SYMBOL_W + SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 4, SYMBOL_H * ROW_COUNT, 0xff0044).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD)
-                    };
-                    this.reelsContainer.add(reelData.teaserGlow);
-                    this.reelsContainer.add(reelData.container);
-                    
-                    for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        let symTxt = this.add.text(SYMBOL_W / 2, r * SYMBOL_H + (SYMBOL_H / 2), 'A', { 
-                            fontFamily: 'Black Ops One, Impact, sans-serif', fontSize: '40px', color: '#ffffff', stroke: '#000000', strokeThickness: 5
-                        }).setOrigin(0.5);
-                        reelData.container.add(symTxt);
-                        reelData.symbols.push({ displayObj: symTxt, yPos: r });
+                // Object Pool für Symbole (2D Array)
+                this.displayGrid = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
+                
+                // Initial füllen (Fake)
+                for(let c=0; c<COLS; c++) {
+                    for(let r=0; r<ROWS; r++) {
+                        this.displayGrid[c][r] = this.createSymbol(c, r, 'A');
                     }
+                }
 
-                    // JUICER / BOMBER Banner
-                    let vsBanner = this.add.container(col * SYMBOL_W, 0).setAlpha(0);
-                    let vsBg = this.add.rectangle(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 4, SYMBOL_H * ROW_COUNT, 0xff3300).setOrigin(0.5);
-                    let vsText = this.add.text(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, '100x', { 
-                        fontFamily: 'Black Ops One', fontSize: '65px', color: '#ffffff', stroke: '#000000', strokeThickness: 8 
+                spinBtn.addEventListener('click', () => this.doRequest(false));
+                buyBtn.addEventListener('click', () => this.doRequest(true));
+            }
+
+            createSymbol(c, r, name, multi = null) {
+                let s = styleMap[name] || styleMap['J'];
+                let container = this.add.container(c * SYMBOL_W, r * SYMBOL_H);
+                
+                let text = this.add.text(0, 0, s.t, {
+                    fontFamily: 'Black Ops One, Impact', fontSize: s.p ? '45px' : '35px', 
+                    color: s.c, stroke: s.stroke || '#000', strokeThickness: 5
+                }).setOrigin(0.5);
+                container.add(text);
+
+                if (name === 'BOMB' && multi) {
+                    text.setFontSize('30px');
+                    let multiTxt = this.add.text(0, 25, `${multi}x`, {
+                        fontFamily: 'Black Ops One', fontSize: '24px', color: '#fff', stroke: '#000', strokeThickness: 4
                     }).setOrigin(0.5);
-                    vsBanner.add([vsBg, vsText]);
-                    this.reelsContainer.add(vsBanner);
-                    reelData.vsOverlay = { container: vsBanner, text: vsText, bg: vsBg };
-
-                    this.reels.push(reelData);
+                    container.add(multiTxt);
+                    
+                    // Bomb Glow Effect
+                    let glow = this.add.circle(0, 0, 40, 0xff0044, 0.4).setBlendMode(Phaser.BlendModes.ADD);
+                    this.tweens.add({ targets: glow, scale: 1.2, alpha: 0.1, yoyo: true, repeat: -1, duration: 600 });
+                    container.addAt(glow, 0);
                 }
 
-                this.reels.forEach(reel => reel.symbols.forEach(s => this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys))));
-                spinBtn.addEventListener('click', () => this.startSpin());
+                this.gridContainer.add(container);
+                return { obj: container, name: name };
             }
 
-            setSymbolVisual(symbolObj, symName) {
-                const cleanName = symName.replace('WILD_BOMBER', 'WILD').replace('WILD_JUICER', 'WILD').replace('WILD_TEST', 'JUICER');
-                const style = symbolStyles[cleanName] || symbolStyles['ORANGE'];
-                
-                symbolObj.displayObj.setText(style.text);
-                symbolObj.displayObj.setColor(style.color);
-                if(style.stroke) symbolObj.displayObj.setStroke(style.stroke, 6);
-                else symbolObj.displayObj.setStroke('#000000', 5);
-                
-                symbolObj.displayObj.setFontSize(style.isPremium || cleanName === 'WILD' ? '45px' : '35px');
-            }
-
-            update() {
-                // Blur Speed
-                const speed = isFastSpin ? 90 : 50; 
-                this.reels.forEach((reel, index) => {
-                    if (reel.isSpinning) {
-                        // Wenn Teaser aktiv ist, drehen die letzten Walzen langsamer für visuelle Spannung
-                        let currentSpeed = reel.isTeasing ? speed * 0.4 : speed;
-
-                        reel.symbols.forEach(s => {
-                            s.displayObj.y += currentSpeed; 
-                            s.displayObj.scaleY = reel.isTeasing ? 1.1 : 1.6;
-                            s.displayObj.setAlpha(reel.isTeasing ? 0.9 : 0.6);
-
-                            if (s.displayObj.y > (ROW_COUNT) * SYMBOL_H + (SYMBOL_H/2)) {
-                                s.displayObj.y -= (ROW_COUNT + 2) * SYMBOL_H;
-                                this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
-                            }
-                        });
-                    }
-                });
-            }
-
-            showOverlayMsg(text, color, shake = true) {
-                mainMsg.innerText = text; 
-                mainMsg.style.color = color;
+            showMsg(text, color, shake = true) {
+                mainMsg.innerText = text; mainMsg.style.color = color;
                 mainMsg.style.textShadow = `0 10px 50px ${color}, 0 0 15px #fff`;
                 msgOverlay.classList.add('active');
-                if(shake) this.cameras.main.shake(600, 0.02);
+                if(shake) this.cameras.main.shake(500, 0.02);
                 setTimeout(() => { msgOverlay.classList.remove('active'); }, 2000);
             }
 
-            async startSpin() {
-                spinBtn.disabled = true;
-                wrapper.classList.remove('teaser-active'); // Reset CSS Shake
-                
-                if(!isAutoPlay) { 
-                    uiWin.innerText = "0.00 €"; 
-                    winBoxContainer.style.transform = "scale(1)";
-                    winBoxContainer.style.boxShadow = "none";
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 }); 
-                    dropsCounter.style.display = 'none'; 
-                }
-
-                this.reels.forEach(reel => { 
-                    reel.isSpinning = true; 
-                    reel.isTeasing = false;
-                    reel.vsOverlay.container.setAlpha(0); 
-                    reel.teaserGlow.setAlpha(0);
-                });
+            async doRequest(isBuy) {
+                spinBtn.disabled = true; buyBtn.disabled = true;
+                if(!isAutoPlay) uiWin.innerText = "0.00 €";
 
                 try {
-                    const response = await fetch('/api/spin', { method: 'POST', headers: { 'Content-Type': 'application/json' }});
-                    const result = await response.json();
-
-                    if (result.error) { 
-                        alert("Broke! Lade Guthaben auf.");
-                        spinBtn.disabled = false; 
-                        return; 
-                    }
-                    
-                    uiBalance.innerText = result.newBalance.toFixed(2);
-
-                    if(result.drops !== undefined && result.drops > 0) {
-                        dropsCounter.style.display = 'block';
-                        dropsCounter.innerHTML = `<i class="fas fa-tint me-2"></i> DROPS: ${result.drops}/6`;
-                    }
-
-                    // TENSION SPIN LOGIK (Teaser)
-                    for (let c = 0; c < REEL_COUNT; c++) {
-                        let baseDelay = isFastSpin ? 100 : 250;
-                        
-                        // Wenn Teaser flag true ist und wir bei Walze 4 oder 5 sind
-                        if (result.isTeaser && c >= 3) {
-                            baseDelay = 1800; // Lass sie schwitzen!
-                            this.reels[c].isTeasing = true;
-                            wrapper.classList.add('teaser-active'); // CSS Frame Shake
-                            this.tweens.add({ targets: this.reels[c].teaserGlow, alpha: 0.5, yoyo: true, repeat: -1, duration: 200 });
-                            
-                            // Scatter Sparks feuern
-                            let spark = this.add.particles(REEL_OFFSET_X + c * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT), 'scatter_spark', {
-                                speed: {min: 100, max: 400}, angle: {min: 220, max: 320}, gravityY: 400, lifespan: 800, scale: {start: 2, end: 0}, blendMode: 'ADD'
-                            });
-                            setTimeout(() => spark.destroy(), baseDelay);
-                        }
-
-                        await new Promise(res => setTimeout(res, baseDelay)); 
-                        
-                        if(result.isTeaser && c >= 3) {
-                            this.cameras.main.shake(200, 0.01); // Thud beim Stoppen der Teaser-Walze
-                        }
-                        
-                        this.stopReel(c, result.grid);
-                    }
-
-                    wrapper.classList.remove('teaser-active');
-                    await new Promise(res => setTimeout(res, 400));
-                    await this.handleWinAnimations(result);
-
-                } catch (err) { 
-                    console.error(err); 
-                    spinBtn.disabled = false; 
-                }
-            }
-
-            stopReel(colIdx, gridData) {
-                const reel = this.reels[colIdx];
-                reel.isSpinning = false; 
-                reel.isTeasing = false;
-                reel.teaserGlow.setAlpha(0);
-                
-                reel.symbols.sort((a,b) => a.displayObj.y - b.displayObj.y);
-                
-                for(let i = 0; i < reel.symbols.length; i++) {
-                    const s = reel.symbols[i];
-                    const r = i - 1; 
-                    
-                    if (r >= 0 && r < ROW_COUNT) this.setSymbolVisual(s, gridData[r][colIdx]);
-                    else this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
-                    
-                    s.displayObj.scaleY = 1;
-                    s.displayObj.setAlpha(1);
-                    
-                    let targetY = r * SYMBOL_H + (SYMBOL_H/2);
-                    s.displayObj.y = targetY - 120; // Hard Drop
-                    
-                    this.tweens.add({ 
-                        targets: s.displayObj, 
-                        y: targetY, 
-                        duration: isFastSpin ? 200 : 400, 
-                        ease: 'Back.easeOut' 
+                    const res = await fetch('/api/spin', { 
+                        method: 'POST', 
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ buyFeature: isBuy })
                     });
-                }
+                    const data = await res.json();
+                    if(data.error) { alert("Balance zu niedrig!"); spinBtn.disabled = false; buyBtn.disabled = false; return; }
+
+                    uiBalance.innerText = data.newBalance.toFixed(2);
+                    await this.playCascades(data);
+                } catch(e) { console.error(e); spinBtn.disabled = false; buyBtn.disabled = false; }
             }
 
-            fireJuiceParticles(startX, startY, targetX, targetY) {
-                const emitter = this.add.particles(startX, startY, 'juice_drop', {
-                    speed: { min: 200, max: 600 }, angle: { min: 0, max: 360 }, scale: { start: 1.5, end: 0 }, lifespan: 500, gravityY: 1000, blendMode: 'ADD', emitting: false
-                });
-                emitter.explode(25); 
-                
-                const projectile = this.add.image(startX, startY, 'juice_drop').setScale(2).setTint(0xffffff);
-                this.tweens.add({
-                    targets: projectile, x: targetX, y: targetY, duration: 150, ease: 'Power1',
-                    onComplete: () => {
-                        projectile.destroy();
-                        const impact = this.add.particles(targetX, targetY, 'juice_drop', { speed: 200, scale: { start: 1.5, end: 0 }, lifespan: 300, blendMode: 'ADD', emitting: false });
-                        impact.explode(20);
-                        setTimeout(()=> impact.destroy(), 400);
-                    }
-                });
-                setTimeout(() => emitter.destroy(), 1000);
-            }
+            async playCascades(data) {
+                let rollingWin = 0;
 
-            async handleWinAnimations(result) {
-                let delayMod = isFastSpin ? 0.5 : 1;
+                // Spiele alle Schritte (Cascades) nacheinander ab
+                for(let i = 0; i < data.cascades.length; i++) {
+                    let step = data.cascades[i];
 
-                if (result.bombers && result.bombers.length > 0) {
-                    for (let bomber of result.bombers) {
-                        const vsBanner = this.reels[bomber.col].vsOverlay;
-                        vsBanner.bg.setFillStyle(0xff0000); 
-                        vsBanner.bg.setAlpha(0.9);
-                        vsBanner.text.setText(`BOMB\n${bomber.multi}x`);
+                    // 1. Grid updaten (Symbole von oben reinfallen lassen wenn nötig, 
+                    // aber für Schritt 0 ersetzen wir das Grid einfach hart mit Drop-Animation)
+                    await this.syncGrid(step.grid, i === 0);
+
+                    // 2. Gewinn-Animation
+                    if (step.wins.length > 0) {
+                        await new Promise(res => setTimeout(res, 300)); // Kurz lesen lassen
                         
-                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 200 * delayMod });
-                        this.cameras.main.shake(400 * delayMod, 0.02); 
-                        
-                        this.showOverlayMsg(`SPLATTER! ${bomber.drops} WILDS`, "#ff3300", false);
+                        // Explosions
+                        step.removed.forEach(pos => {
+                            let sym = this.displayGrid[pos.c][pos.r];
+                            if(sym && sym.obj) {
+                                // Partikel
+                                let ex = this.add.particles(OFFSET_X + pos.c*SYMBOL_W, OFFSET_Y + pos.r*SYMBOL_H, 'p_orange', {
+                                    speed: 200, scale: {start:1, end:0}, lifespan: 400, blendMode: 'ADD', emitting: false
+                                });
+                                ex.explode(15);
+                                setTimeout(()=>ex.destroy(), 500);
 
-                        let startX = REEL_OFFSET_X + bomber.col * SYMBOL_W + (SYMBOL_W/2);
-                        let startY = REEL_OFFSET_Y + bomber.origin.r * SYMBOL_H + (SYMBOL_H/2);
-
-                        result.splatters.forEach(spot => {
-                            let targetX = REEL_OFFSET_X + spot.c * SYMBOL_W + (SYMBOL_W/2);
-                            let targetY = REEL_OFFSET_Y + spot.r * SYMBOL_H + (SYMBOL_H/2);
-                            this.fireJuiceParticles(startX, startY, targetX, targetY);
+                                // Zerstören
+                                this.tweens.add({
+                                    targets: sym.obj, scale: 0, alpha: 0, duration: 200,
+                                    onComplete: () => { sym.obj.destroy(); this.displayGrid[pos.c][pos.r] = null; }
+                                });
+                            }
                         });
+                        
+                        this.cameras.main.shake(200, 0.01);
 
-                        await new Promise(res => setTimeout(res, 800 * delayMod)); 
+                        rollingWin += step.stepWin;
+                        uiWin.innerText = `${rollingWin.toFixed(2)} €`;
+                        uiWin.style.transform = "scale(1.2)"; setTimeout(() => uiWin.style.transform = "scale(1)", 150);
+
+                        await new Promise(res => setTimeout(res, 300)); // Warten bis zerstört
                     }
+                }
+
+                // 3. Bomben Multiplikator am Ende anwenden
+                if (data.totalBaseWin > 0 && data.bombs.length > 0) {
+                    await new Promise(res => setTimeout(res, 500));
                     
-                    result.splatters.forEach(spot => {
-                        let reel = this.reels[spot.c];
-                        let sym = reel.symbols.find(s => s.displayObj.y > spot.r*SYMBOL_H && s.displayObj.y < (spot.r+1)*SYMBOL_H);
-                        if(sym) { 
-                            this.setSymbolVisual(sym, 'WILD'); 
-                            this.tweens.add({targets: sym.displayObj, scale: 1.6, yoyo: true, duration: 250, ease: 'Bounce.easeOut'}); 
+                    let totalBombValue = 0;
+                    data.bombs.forEach(b => {
+                        totalBombValue += b.multi;
+                        let sym = this.displayGrid[b.c][b.r];
+                        if(sym) {
+                            this.tweens.add({ targets: sym.obj, scale: 1.5, yoyo: true, duration: 400 });
                         }
                     });
-                    this.cameras.main.shake(300 * delayMod, 0.015);
-                    await new Promise(res => setTimeout(res, 600 * delayMod));
-                }
-
-                if (result.juicers && result.juicers.length > 0) {
-                    for (let vs of result.juicers) {
-                        const vsBanner = this.reels[vs.col].vsOverlay;
-                        vsBanner.bg.setFillStyle(0xff5500); 
-                        vsBanner.bg.setAlpha(1);
-                        vsBanner.text.setText(`JUICED\n${vs.multi}x`);
-                        vsBanner.text.setScale(0);
-                        
-                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 150 * delayMod });
-                        this.tweens.add({ targets: vsBanner.text, scale: 1.2, yoyo: true, duration: 300 * delayMod, ease: 'Back.easeOut', onComplete: () => vsBanner.text.setScale(1) });
-                        this.cameras.main.shake(600 * delayMod, 0.03); // Erdbeben!
-                        
-                        await new Promise(res => setTimeout(res, 1200 * delayMod)); 
-                    }
-                }
-
-                if (result.bonusTriggered === 'JUICE_SPINS') {
-                    this.showOverlayMsg("JUICE SPINS!", "#00ff88");
-                    this.bonusBg.setFillStyle(0x00ff88);
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.3, yoyo: true, repeat: -1, duration: 800 });
-                    await new Promise(res => setTimeout(res, 2500));
-                } else if (result.bonusTriggered === 'CHAOS_SPINS') {
-                    this.showOverlayMsg("CHAOS SPINS!", "#ff0000");
-                    this.bonusBg.setFillStyle(0xff0000);
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.5, yoyo: true, repeat: -1, duration: 600 });
-                    dropsCounter.style.display = 'block';
-                    await new Promise(res => setTimeout(res, 3000));
-                }
-
-                // WIN ROLLING LOGIC
-                if (result.win > 0) {
-                    let oldWin = parseFloat(uiWin.innerText) || 0;
-                    uiWin.classList.add('win-value');
                     
-                    if(result.win >= 50) {
-                        this.showOverlayMsg(`MASSIVE JUICE\n${result.win.toFixed(2)} €`, "var(--toxic-green)");
-                        winBoxContainer.style.transform = "scale(1.2)";
-                        winBoxContainer.style.boxShadow = "0 0 30px var(--toxic-green)";
-                        rollNumber(uiWin, oldWin, result.win, 2000); // 2 Sekunden Roll für fette Wins
-                        await new Promise(res => setTimeout(res, 2500));
-                    } else {
-                        winBoxContainer.style.transform = "scale(1.1)";
-                        rollNumber(uiWin, oldWin, result.win, 800); // 0.8 Sekunden Roll für normale Wins
-                        setTimeout(() => winBoxContainer.style.transform = "scale(1)", 800);
-                        await new Promise(res => setTimeout(res, 1000 * delayMod));
-                    }
+                    this.showMsg(`x${totalBombValue} MULTI!`, "#ff0044");
+                    this.cameras.main.shake(600, 0.02);
+                    await new Promise(res => setTimeout(res, 1500));
+
+                    // Final Win Roll
+                    rollNum(uiWin, rollingWin, data.finalSpinWin, 1500);
+                    uiWin.style.color = "#ff5500";
+                    setTimeout(() => uiWin.style.color = "var(--toxic-green)", 2000);
+                    await new Promise(res => setTimeout(res, 2000));
+                } else if (data.globalMultiplier > 0 && data.totalBaseWin > 0 && isFreeSpins) {
+                    // In Free Spins gilt der globale Multi, auch wenn keine neuen Bomben fielen, sofern Bomben in der DB registriert wurden
+                    // Laut Logik: Multi wird angewendet.
+                    rollNum(uiWin, rollingWin, data.finalSpinWin, 1000);
+                    await new Promise(res => setTimeout(res, 1200));
                 }
 
-                if (result.nextAction === 'CHAOS_DROP') {
-                    this.showOverlayMsg("CHAOS DROP!", "#ff5500");
-                    uiWinLabel.innerText = "CHAOS DROP";
-                    isAutoPlay = true;
-                    await new Promise(res => setTimeout(res, 1500));
-                    this.startSpin();
-                } else if (result.spinsLeft > 0) {
-                    uiWinLabel.innerText = `FREE SPINS: ${result.spinsLeft}`;
-                    isAutoPlay = true;
-                    await new Promise(res => setTimeout(res, 800 * delayMod));
-                    this.startSpin();
-                } else if (result.nextAction === 'END_BONUS') {
-                    this.showOverlayMsg(`TOTAL CHAOS\n${result.totalBonusWin.toFixed(2)} €`, "#ffcc00");
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 1000 }); 
-                    uiWinLabel.innerText = "WIN";
-                    dropsCounter.style.display = 'none';
-                    isAutoPlay = false;
+                // 4. State Management (Free Spins / UI Updates)
+                if (data.bonusTriggered) {
+                    this.showMsg("JUICE FEST\nFREE SPINS", "#ffcc00");
+                    this.bgGlow.setFillStyle(0xff5500);
+                    this.tweens.add({ targets: this.bgGlow, alpha: 0.3, yoyo: true, repeat: -1, duration: 1000 });
+                    
+                    isFreeSpins = true;
+                    fsHud.classList.add('active');
+                    multiHud.classList.add('active');
+                    fsCount.innerText = data.spinsLeft;
+                    globalMulti.innerText = "x" + data.globalMultiplier;
+                    
                     await new Promise(res => setTimeout(res, 3000));
-                    spinBtn.disabled = false;
-                } else {
-                    spinBtn.disabled = false;
                 }
+
+                if (isFreeSpins) {
+                    fsCount.innerText = data.spinsLeft;
+                    globalMulti.innerText = "x" + data.globalMultiplier;
+                }
+
+                if (data.nextAction === 'END_BONUS') {
+                    this.showMsg(`TOTAL WIN\n${data.totalBonusWin.toFixed(2)} €`, "#00ff44");
+                    this.tweens.add({ targets: this.bgGlow, alpha: 0, duration: 1000 }); 
+                    
+                    isFreeSpins = false;
+                    isAutoPlay = false;
+                    fsHud.classList.remove('active');
+                    multiHud.classList.remove('active');
+                    
+                    await new Promise(res => setTimeout(res, 3000));
+                    spinBtn.disabled = false; buyBtn.disabled = false;
+                } else if (isFreeSpins) {
+                    isAutoPlay = true;
+                    await new Promise(res => setTimeout(res, 1000));
+                    this.doRequest(false);
+                } else {
+                    spinBtn.disabled = false; buyBtn.disabled = false;
+                }
+            }
+
+            // Synchronisiert das UI Grid mit dem Backend Array
+            async syncGrid(backendGrid, isInitialSpin) {
+                let tweens = [];
+
+                for(let c=0; c<COLS; c++) {
+                    // Finde tiefste leere Stelle
+                    for(let r=ROWS-1; r>=0; r--) {
+                        let targetData = backendGrid[c][r];
+                        let existing = this.displayGrid[c][r];
+
+                        if (!existing) {
+                            // Symbol fehlt -> Muss von oben runterfallen
+                            let newSym = this.createSymbol(c, r, targetData.name, targetData.multi);
+                            newSym.obj.y = -200 - (r * 50); // Startet weit oben
+                            this.displayGrid[c][r] = newSym;
+
+                            tweens.push(new Promise(res => {
+                                this.tweens.add({
+                                    targets: newSym.obj, y: r * SYMBOL_H,
+                                    duration: isInitialSpin ? 400 + (c*100) : 400, // Im Initial Spin Wellenartig, sonst alle gleich
+                                    ease: 'Bounce.easeOut',
+                                    onComplete: res
+                                });
+                            }));
+                        } else if (isInitialSpin) {
+                            // Harter Reset beim ersten Spin
+                            existing.obj.destroy();
+                            let newSym = this.createSymbol(c, r, targetData.name, targetData.multi);
+                            newSym.obj.y = -200 - (Math.random() * 200); 
+                            this.displayGrid[c][r] = newSym;
+
+                            tweens.push(new Promise(res => {
+                                this.tweens.add({
+                                    targets: newSym.obj, y: r * SYMBOL_H,
+                                    duration: 500 + (c*100), ease: 'Bounce.easeOut', onComplete: res
+                                });
+                            }));
+                        }
+                    }
+                }
+                
+                if(tweens.length > 0) await Promise.all(tweens);
             }
         }
 
