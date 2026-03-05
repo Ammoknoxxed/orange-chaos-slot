@@ -4,185 +4,300 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chaos Orange | Duel Edition</title>
-    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser-arcade-physics.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* =========================================
+           UI / UX STYLING (STAKE / HACKSAW VIBE)
+           ========================================= */
+        :root {
+            --bg-dark: #0f212e;
+            --panel-bg: #1a2c38;
+            --accent: #00e701; /* Stake Green */
+            --accent-glow: rgba(0, 231, 1, 0.4);
+            --danger: #ff0044;
+            --text-main: #b1bad3;
+        }
+
         body {
-            background-color: #030303;
-            color: #fff;
-            font-family: Impact, 'Arial Black', sans-serif; 
+            background-color: #071017;
             margin: 0;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
             overflow: hidden;
-            background: radial-gradient(circle at center, #1a0a00 0%, #000 100%);
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: radial-gradient(circle at center, #111d26 0%, #071017 100%);
         }
 
+        /* Der Rahmen um das Spiel */
         #game-wrapper {
             position: relative;
             width: 1000px;
-            height: 800px;
-            background: #080808;
-            border-radius: 10px;
-            box-shadow: 0 0 50px rgba(0,0,0,0.9);
-            border: 2px solid #1a1a1a;
+            height: 850px;
+            background: #000;
+            border-radius: 20px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            overflow: hidden;
         }
 
+        /* Phaser Canvas */
+        #phaser-canvas {
+            width: 100%;
+            height: 750px; /* Platz für UI unten lassen */
+        }
+
+        /* =========================================
+           BOTTOM CONTROL BAR (UI)
+           ========================================= */
         #control-bar {
             position: absolute;
             bottom: 0;
             width: 100%;
-            height: 80px;
-            background: #050505;
-            border-top: 2px solid #222;
+            height: 100px;
+            background: var(--panel-bg);
+            border-top: 2px solid rgba(255,255,255,0.02);
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 30px;
+            padding: 0 40px;
             box-sizing: border-box;
             z-index: 100;
         }
 
-        .panel-box { display: flex; flex-direction: column; justify-content: center; }
-        .panel-label { color: #555; font-size: 14px; line-height: 1; letter-spacing: 1px; font-family: Arial, sans-serif; font-weight: bold;}
-        .panel-value { color: #fff; font-size: 26px; line-height: 1.2; letter-spacing: 1px; }
-        .win-value { color: #ff8c00; font-size: 34px; text-shadow: 0 0 10px rgba(255, 140, 0, 0.4); }
-
-        #bullet-counter {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.8);
-            border: 2px solid #00ccff;
-            padding: 10px;
-            border-radius: 5px;
-            color: #00ccff;
-            font-size: 20px;
-            z-index: 100;
-            display: none;
+        .panel-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: rgba(0,0,0,0.2);
+            padding: 10px 20px;
+            border-radius: 8px;
+            min-width: 150px;
+            border: 1px solid rgba(255,255,255,0.02);
         }
 
+        .panel-label { color: var(--text-main); font-size: 12px; text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 5px; }
+        .panel-value { color: #fff; font-size: 20px; font-weight: 900; font-family: 'Courier New', monospace; }
+        
+        .win-box { background: rgba(0, 231, 1, 0.05); border-color: rgba(0, 231, 1, 0.2); text-align: center; }
+        .win-value { color: var(--accent); font-size: 26px; text-shadow: 0 0 15px var(--accent-glow); }
+
+        /* Stake Style Spin Button */
         #spin-btn {
-            width: 60px;
-            height: 60px;
+            width: 80px;
+            height: 80px;
             border-radius: 50%;
-            background: transparent;
-            border: 3px solid #ff8c00;
-            color: #ff8c00;
+            background: var(--accent);
+            border: none;
+            color: #000;
+            font-size: 28px;
             cursor: pointer;
             display: flex;
             justify-content: center;
             align-items: center;
-            transition: all 0.2s;
+            box-shadow: 0 10px 20px var(--accent-glow);
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            outline: none;
         }
-        #spin-btn::before { content: "↻"; font-size: 36px; font-family: Arial; }
-        #spin-btn:hover { background: rgba(255, 140, 0, 0.1); transform: scale(1.05); }
+        #spin-btn:hover { transform: scale(1.1); box-shadow: 0 15px 30px var(--accent-glow); background: #fff; }
         #spin-btn:active { transform: scale(0.95); }
-        #spin-btn:disabled { border-color: #333; color: #333; cursor: not-allowed; }
+        #spin-btn:disabled { background: #2f4553; color: #879097; cursor: not-allowed; box-shadow: none; transform: scale(1); }
+
+        /* =========================================
+           OVERLAYS & NOTIFICATIONS
+           ========================================= */
+        #bullet-counter {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 136, 255, 0.1);
+            border: 1px solid #0088ff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            color: #0088ff;
+            font-size: 18px;
+            font-weight: 800;
+            z-index: 100;
+            display: none;
+            box-shadow: 0 0 20px rgba(0, 136, 255, 0.4);
+            backdrop-filter: blur(5px);
+        }
 
         #msg-overlay {
             position: absolute;
-            top: 40%;
-            width: 100%;
-            text-align: center;
+            top: 0; left: 0; width: 100%; height: 750px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0,0,0,0.7);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s;
+            backdrop-filter: blur(5px);
+        }
+        #msg-overlay.active { opacity: 1; pointer-events: all; }
+
+        .msg-text {
             font-size: 80px;
             color: #fff;
+            font-weight: 900;
+            text-transform: uppercase;
             text-shadow: 0 10px 40px rgba(0,0,0,0.9);
-            pointer-events: none;
-            opacity: 0;
-            z-index: 200;
             transform: scale(0.5);
-            transition: all 0.3s;
-            letter-spacing: 2px;
+            transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            line-height: 1;
+            text-align: center;
         }
+        #msg-overlay.active .msg-text { transform: scale(1); }
+
     </style>
 </head>
 <body>
 
     <div id="game-wrapper">
         <div id="phaser-canvas"></div>
-        <div id="msg-overlay">WILD WILD WEST</div>
-        <div id="bullet-counter">BULLETS: 0/6</div>
+        
+        <div id="msg-overlay">
+            <div class="msg-text" id="main-msg">WILD WILD WEST</div>
+        </div>
+        
+        <div id="bullet-counter"><i class="fas fa-crosshairs me-2"></i> BULLETS: 0/6</div>
 
         <div id="control-bar">
             <div class="panel-box">
-                <span class="panel-label">BALANCE</span>
+                <span class="panel-label">Balance</span>
                 <span class="panel-value"><span id="ui-balance"><%= user.balance.toFixed(2) %></span> €</span>
             </div>
             
-            <div class="panel-box" style="text-align: center;">
-                <span class="panel-label" id="ui-win-label">WIN</span>
+            <div class="panel-box win-box">
+                <span class="panel-label" id="ui-win-label">Win</span>
                 <span class="panel-value win-value" id="ui-win">0.00 €</span>
             </div>
 
-            <div class="panel-box" style="align-items: center; flex-direction: row; gap: 20px;">
-                <button id="spin-btn"></button>
+            <div class="d-flex gap-3 align-items-center">
+                <div class="panel-box text-center" style="min-width: 100px;">
+                    <span class="panel-label">Bet</span>
+                    <span class="panel-value">1.00 €</span>
+                </div>
+                <button id="spin-btn"><i class="fas fa-redo-alt"></i></button>
             </div>
         </div>
     </div>
 
     <script>
+        // UI DOM Elements
         const uiBalance = document.getElementById('ui-balance');
         const uiWin = document.getElementById('ui-win');
         const uiWinLabel = document.getElementById('ui-win-label');
         const spinBtn = document.getElementById('spin-btn');
         const msgOverlay = document.getElementById('msg-overlay');
+        const mainMsg = document.getElementById('main-msg');
         const bulletCounter = document.getElementById('bullet-counter');
 
-        const REEL_COUNT = 5; const ROW_COUNT = 5;
-        const SYMBOL_W = 140; const SYMBOL_H = 120; 
-        const REEL_OFFSET_X = 150; const REEL_OFFSET_Y = 60;  
+        // Grid Settings
+        const REEL_COUNT = 5; 
+        const ROW_COUNT = 5;
+        const SYMBOL_W = 140; 
+        const SYMBOL_H = 120; 
+        const REEL_OFFSET_X = 150; 
+        const REEL_OFFSET_Y = 60;  
 
+        // 🎨 HIER KOMMEN DEINE EIGENEN GRAFIKEN REIN!
+        // Aktuell nutzen wir Text-Platzhalter. Wenn du Grafiken hast:
+        // 1. Lade sie in der preload() Funktion.
+        // 2. Ändere die Logik in setSymbolVisual() so ab, dass sie ein Sprite anzeigt.
         const symbolStyles = {
-            'ORANGE':  { text: 'ORG', color: '#ff6600' },
-            'ROLEX':   { text: 'RLX', color: '#ffcc00' },
-            'BÜNDEL':  { text: 'CASH', color: '#00ff44' },
-            'ENERGY':  { text: 'NRG', color: '#0088ff' },
-            'CAP':     { text: 'CAP', color: '#888888' },
+            'ORANGE':  { text: 'ORG', color: '#ff6600', isPremium: true },
+            'ROLEX':   { text: 'RLX', color: '#ffcc00', isPremium: true },
+            'BÜNDEL':  { text: 'CASH', color: '#00ff44', isPremium: true },
+            'ENERGY':  { text: 'NRG', color: '#0088ff', isPremium: true },
+            'CAP':     { text: 'CAP', color: '#ff0044', isPremium: true },
             'ACE':     { text: 'A', color: '#aaaaaa' },
             'KING':    { text: 'K', color: '#aaaaaa' },
             'QUEEN':   { text: 'Q', color: '#aaaaaa' },
             'JACK':    { text: 'J', color: '#aaaaaa' },
             'TEN':     { text: '10', color: '#aaaaaa' },
             'WILD':    { text: 'WILD', color: '#ff00ff' }, 
-            'JUICER':  { text: 'VS', color: '#888888' }, // Toter VS
+            'JUICER':  { text: 'VS', color: '#888888' }, 
             'OUTLAW':  { text: 'GUN', color: '#00ccff' }, 
             'SCATTER': { text: 'FS', color: '#ffdd00' } 
         };
-        const symbolKeys = Object.keys(symbolStyles).filter(k=>k!=='WILD');
+        const symbolKeys = Object.keys(symbolStyles).filter(k => k !== 'WILD' && !k.includes('WILD_'));
 
         let isAutoPlay = false;
 
+        /* =========================================
+           PHASER 3 ENGINE
+           ========================================= */
         class GameScene extends Phaser.Scene {
             constructor() { super('GameScene'); }
 
-            create() {
-                this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0xff0000).setAlpha(0);
+            preload() {
+                // 🖼️ BEISPIEL FÜR DEINE GRAFIKEN:
+                // this.load.image('ORANGE', '/images/symbols/orange.png');
+                // this.load.image('WILD', '/images/symbols/wild.png');
+                // this.load.image('VS', '/images/symbols/vs_expanded.png');
+            }
 
+            create() {
+                // Background Glow für Bonus-Runden
+                this.bonusBg = this.add.rectangle(500, 400, 1000, 800, 0xff0000).setAlpha(0);
+                this.bonusBg.setBlendMode(Phaser.BlendModes.ADD);
+
+                // Walzen-Hintergründe (Dark Grid)
                 for (let col = 0; col < REEL_COUNT; col++) {
-                    this.add.rectangle(REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 8, SYMBOL_H * ROW_COUNT, 0x0a0a0a).setOrigin(0.5);
+                    this.add.rectangle(
+                        REEL_OFFSET_X + col * SYMBOL_W + (SYMBOL_W/2), 
+                        REEL_OFFSET_Y + (SYMBOL_H * ROW_COUNT)/2, 
+                        SYMBOL_W - 10, 
+                        SYMBOL_H * ROW_COUNT, 
+                        0x0a1014
+                    ).setOrigin(0.5).setStrokeStyle(1, 0x1a2c38);
                 }
 
+                // Main Container & Maske
                 this.reelsContainer = this.add.container(REEL_OFFSET_X, REEL_OFFSET_Y);
                 this.reels = [];
 
-                const globalMask = this.add.graphics().fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_W * REEL_COUNT, SYMBOL_H * ROW_COUNT).createGeometryMask();
+                const globalMask = this.add.graphics()
+                    .fillRect(REEL_OFFSET_X, REEL_OFFSET_Y, SYMBOL_W * REEL_COUNT, SYMBOL_H * ROW_COUNT)
+                    .createGeometryMask();
                 this.reelsContainer.setMask(globalMask);
 
+                // Walzen initialisieren
                 for (let col = 0; col < REEL_COUNT; col++) {
-                    const reelData = { container: this.add.container(col * SYMBOL_W, 0), symbols: [], isSpinning: false, vsOverlay: null };
+                    const reelData = { 
+                        container: this.add.container(col * SYMBOL_W, 0), 
+                        symbols: [], 
+                        isSpinning: false, 
+                        vsOverlay: null 
+                    };
                     this.reelsContainer.add(reelData.container);
                     
+                    // Symbole pro Walze (+ Buffer oben und unten für flüssiges Scrollen)
                     for (let r = -1; r < ROW_COUNT + 1; r++) {
-                        let symTxt = this.add.text(SYMBOL_W / 2, r * SYMBOL_H + (SYMBOL_H / 2), 'A', { fontFamily: 'Impact, sans-serif', fontSize: '50px', color: '#ffffff' }).setOrigin(0.5);
+                        // 🛠️ HIER SPÄTER: this.add.sprite(...) statt this.add.text(...)
+                        let symTxt = this.add.text(SYMBOL_W / 2, r * SYMBOL_H + (SYMBOL_H / 2), 'A', { 
+                            fontFamily: 'Impact, sans-serif', 
+                            fontSize: '40px', 
+                            color: '#ffffff',
+                            stroke: '#000000',
+                            strokeThickness: 4
+                        }).setOrigin(0.5);
+                        
                         reelData.container.add(symTxt);
-                        reelData.symbols.push({ textObj: symTxt, yPos: r });
+                        reelData.symbols.push({ displayObj: symTxt, yPos: r });
                     }
 
+                    // Das fette VS Banner / Outlaw Banner
                     let vsBanner = this.add.container(col * SYMBOL_W, 0).setAlpha(0);
                     let vsBg = this.add.rectangle(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, SYMBOL_W - 4, SYMBOL_H * ROW_COUNT, 0xaa0000).setOrigin(0.5);
-                    let vsText = this.add.text(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, '100x', { fontFamily: 'Impact', fontSize: '65px', color: '#ffffff' }).setOrigin(0.5);
+                    let vsText = this.add.text(SYMBOL_W/2, (SYMBOL_H * ROW_COUNT)/2, '100x', { 
+                        fontFamily: 'Impact', fontSize: '70px', color: '#ffffff', stroke: '#000000', strokeThickness: 6 
+                    }).setOrigin(0.5);
                     vsBanner.add([vsBg, vsText]);
                     this.reelsContainer.add(vsBanner);
                     reelData.vsOverlay = { container: vsBanner, text: vsText, bg: vsBg };
@@ -190,26 +305,43 @@
                     this.reels.push(reelData);
                 }
 
+                // Initiale Zufallssymbole
                 this.reels.forEach(reel => reel.symbols.forEach(s => this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys))));
+                
+                // Button Event Listener
                 spinBtn.addEventListener('click', () => this.startSpin());
             }
 
+            // Zentrale Funktion um das Symbol-Aussehen zu ändern
             setSymbolVisual(symbolObj, symName) {
                 const cleanName = symName.replace('WILD_OUTLAW', 'WILD').replace('WILD_VS', 'WILD').replace('WILD_TEST', 'JUICER');
                 const style = symbolStyles[cleanName] || symbolStyles['ORANGE'];
-                symbolObj.textObj.setText(style.text);
-                symbolObj.textObj.setColor(style.color);
+                
+                // 🛠️ HIER SPÄTER: symbolObj.displayObj.setTexture(cleanName);
+                symbolObj.displayObj.setText(style.text);
+                symbolObj.displayObj.setColor(style.color);
+                
+                if(style.isPremium) {
+                    symbolObj.displayObj.setFontSize('50px');
+                } else {
+                    symbolObj.displayObj.setFontSize('40px');
+                }
             }
 
+            // Der Game Loop für den Motion-Blur-Spin-Effekt
             update() {
                 this.reels.forEach(reel => {
                     if (reel.isSpinning) {
                         reel.symbols.forEach(s => {
-                            s.textObj.y += 45; 
-                            if (s.textObj.y > (ROW_COUNT) * SYMBOL_H + (SYMBOL_H/2)) {
-                                s.textObj.y -= (ROW_COUNT + 2) * SYMBOL_H;
+                            s.displayObj.y += 60; // Speed
+                            
+                            // Fake Motion Blur Stretch
+                            s.displayObj.scaleY = 1.5;
+                            s.displayObj.setAlpha(0.5);
+
+                            if (s.displayObj.y > (ROW_COUNT) * SYMBOL_H + (SYMBOL_H/2)) {
+                                s.displayObj.y -= (ROW_COUNT + 2) * SYMBOL_H;
                                 this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
-                                s.textObj.setAlpha(0.3); 
                             }
                         });
                     }
@@ -217,109 +349,176 @@
             }
 
             showOverlayMsg(text, color) {
-                msgOverlay.innerText = text; msgOverlay.style.color = color; msgOverlay.style.opacity = 1; msgOverlay.style.transform = "scale(1)";
-                setTimeout(() => { msgOverlay.style.opacity = 0; msgOverlay.style.transform = "scale(0.5)"; }, 2500);
+                mainMsg.innerText = text; 
+                mainMsg.style.color = color;
+                mainMsg.style.textShadow = `0 10px 40px ${color}`;
+                msgOverlay.classList.add('active');
+                
+                // Sound / Shake Effect
+                this.cameras.main.shake(500, 0.01);
+
+                setTimeout(() => { msgOverlay.classList.remove('active'); }, 2500);
             }
 
             async startSpin() {
                 spinBtn.disabled = true;
-                if(!isAutoPlay) { uiWin.innerText = "0.00 €"; this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 }); bulletCounter.style.display = 'none'; }
+                
+                if(!isAutoPlay) { 
+                    uiWin.innerText = "0.00 €"; 
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 300 }); 
+                    bulletCounter.style.display = 'none'; 
+                }
 
-                this.reels.forEach(reel => { reel.isSpinning = true; reel.vsOverlay.container.setAlpha(0); });
+                // Alle Walzen starten und Overlays resetten
+                this.reels.forEach(reel => { 
+                    reel.isSpinning = true; 
+                    reel.vsOverlay.container.setAlpha(0); 
+                });
 
                 try {
                     const response = await fetch('/api/spin', { method: 'POST', headers: { 'Content-Type': 'application/json' }});
                     const result = await response.json();
 
-                    if (result.error) { spinBtn.disabled = false; return; }
+                    if (result.error) { 
+                        alert("Broke! Lade Guthaben auf.");
+                        spinBtn.disabled = false; 
+                        return; 
+                    }
+                    
                     uiBalance.innerText = result.newBalance.toFixed(2);
 
-                    // Update Bullet Counter
+                    // Update Bullet Counter UI
                     if(result.bullets !== undefined && result.bullets > 0) {
                         bulletCounter.style.display = 'block';
-                        bulletCounter.innerText = `BULLETS: ${result.bullets}/6`;
+                        bulletCounter.innerHTML = `<i class="fas fa-crosshairs me-2"></i> BULLETS: ${result.bullets}/6`;
                     }
 
+                    // Stoppe Walzen nacheinander (Tension)
                     for (let c = 0; c < REEL_COUNT; c++) {
-                        await new Promise(res => setTimeout(res, 200)); 
+                        // Verzögerung (Teaser-Logik hier einbaubar, z.B. wenn 2 Scatters gefallen sind)
+                        await new Promise(res => setTimeout(res, 250)); 
                         this.stopReel(c, result.grid);
                     }
 
+                    // Warte bis alle gestoppt sind
+                    await new Promise(res => setTimeout(res, 500));
                     await this.handleWinAnimations(result);
 
-                } catch (err) { console.error(err); spinBtn.disabled = false; }
+                } catch (err) { 
+                    console.error(err); 
+                    spinBtn.disabled = false; 
+                }
             }
 
             stopReel(colIdx, gridData) {
                 const reel = this.reels[colIdx];
                 reel.isSpinning = false; 
-                reel.symbols.sort((a,b) => a.textObj.y - b.textObj.y);
+                
+                // Symbole nach Y-Position sortieren, um sie korrekt zuzuweisen
+                reel.symbols.sort((a,b) => a.displayObj.y - b.displayObj.y);
                 
                 for(let i = 0; i < reel.symbols.length; i++) {
                     const s = reel.symbols[i];
-                    const r = i - 1; 
-                    if (r >= 0 && r < ROW_COUNT) this.setSymbolVisual(s, gridData[r][colIdx]);
-                    else this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
-                    s.textObj.setAlpha(1);
+                    const r = i - 1; // -1 ist der Puffer oben
+                    
+                    if (r >= 0 && r < ROW_COUNT) {
+                        this.setSymbolVisual(s, gridData[r][colIdx]);
+                    } else {
+                        this.setSymbolVisual(s, Phaser.Utils.Array.GetRandom(symbolKeys));
+                    }
+                    
+                    // Motion Blur aus, Bounce rein
+                    s.displayObj.scaleY = 1;
+                    s.displayObj.setAlpha(1);
                     
                     let targetY = r * SYMBOL_H + (SYMBOL_H/2);
-                    s.textObj.y = targetY - 60;
-                    this.tweens.add({ targets: s.textObj, y: targetY, duration: 350, ease: 'Back.easeOut' });
+                    s.displayObj.y = targetY - 100; // Start etwas höher für den Drop
+                    
+                    this.tweens.add({ 
+                        targets: s.displayObj, 
+                        y: targetY, 
+                        duration: 400, 
+                        ease: 'Back.easeOut' // Krasser Bounce-Effekt wie bei Hacksaw
+                    });
                 }
             }
 
             async handleWinAnimations(result) {
+                // 1. Outlaw Animations (Shooting)
                 if (result.outlaws && result.outlaws.length > 0) {
                     for (let outlaw of result.outlaws) {
                         const vsBanner = this.reels[outlaw.col].vsOverlay;
-                        vsBanner.bg.setFillStyle(0x0055ff); 
+                        vsBanner.bg.setFillStyle(0x00ccff); 
+                        vsBanner.bg.setAlpha(0.8);
                         vsBanner.text.setText(`GUN\n${outlaw.multi}x`);
-                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 250 });
-                        this.cameras.main.shake(300, 0.005);
                         
-                        msgOverlay.innerText = `BANG! ${outlaw.bullets} WILDS`;
-                        msgOverlay.style.color = "#00ccff";
-                        msgOverlay.style.opacity = 1;
-                        await new Promise(res => setTimeout(res, 1200)); 
-                        msgOverlay.style.opacity = 0;
+                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 200 });
+                        this.cameras.main.shake(400, 0.015); // Heftiger Shake
+                        
+                        this.showOverlayMsg(`BANG! ${outlaw.bullets} WILDS`, "#00ccff");
+                        await new Promise(res => setTimeout(res, 1000)); 
                     }
+                    
+                    // Wilds poppen lassen
                     result.shotsFired.forEach(spot => {
                         let reel = this.reels[spot.c];
-                        let sym = reel.symbols.find(s => s.textObj.y > spot.r*SYMBOL_H && s.textObj.y < (spot.r+1)*SYMBOL_H);
-                        if(sym) { this.setSymbolVisual(sym, 'WILD'); this.tweens.add({targets:sym.textObj, scale:1.3, yoyo:true, duration:200}); }
+                        let sym = reel.symbols.find(s => s.displayObj.y > spot.r*SYMBOL_H && s.displayObj.y < (spot.r+1)*SYMBOL_H);
+                        if(sym) { 
+                            this.setSymbolVisual(sym, 'WILD'); 
+                            this.tweens.add({targets: sym.displayObj, scale: 1.5, yoyo: true, duration: 300, ease: 'Power2'}); 
+                        }
                     });
+                    await new Promise(res => setTimeout(res, 500));
                 }
 
+                // 2. VS Juicer Expand Animation
                 if (result.vsJuicers && result.vsJuicers.length > 0) {
                     for (let vs of result.vsJuicers) {
                         const vsBanner = this.reels[vs.col].vsOverlay;
-                        vsBanner.bg.setFillStyle(0xaa0000); 
+                        vsBanner.bg.setFillStyle(0xff0044); 
+                        vsBanner.bg.setAlpha(0.9);
                         vsBanner.text.setText(`VS\n${vs.multi}x`);
-                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 250 });
-                        this.cameras.main.shake(300, 0.005);
+                        vsBanner.text.setScale(0);
+                        
+                        this.tweens.add({ targets: vsBanner.container, alpha: 1, duration: 200 });
+                        this.tweens.add({ targets: vsBanner.text, scale: 1, duration: 400, ease: 'Back.easeOut' });
+                        this.cameras.main.shake(500, 0.02); // Sehr fetter Shake
+                        
                         await new Promise(res => setTimeout(res, 1000)); 
                     }
                 }
 
+                // 3. Bonus Triggers
                 if (result.bonusTriggered === 'WILD_WEST') {
-                    this.showOverlayMsg("WILD WILD WEST", "#ff0000");
-                    this.bonusBg.setFillStyle(0xff0000);
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.3, yoyo: true, repeat: -1, duration: 800 });
+                    this.showOverlayMsg("WILD WILD WEST", "#ff6600");
+                    this.bonusBg.setFillStyle(0xff6600);
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0.2, yoyo: true, repeat: -1, duration: 1000 });
                     await new Promise(res => setTimeout(res, 2500));
                 } else if (result.bonusTriggered === 'DUSK_DAWN') {
                     this.showOverlayMsg("DUSK 'TIL DAWN", "#0088ff");
                     this.bonusBg.setFillStyle(0x002255);
-                    this.tweens.add({ targets: this.bonusBg, alpha: 0.5, yoyo: true, repeat: -1, duration: 800 });
+                    this.tweens.add({ targets: this.bonusBg, alpha: 0.4, yoyo: true, repeat: -1, duration: 1000 });
                     bulletCounter.style.display = 'block';
                     await new Promise(res => setTimeout(res, 2500));
                 }
 
+                // 4. Gewinn hochzählen
                 if (result.win > 0) {
                     uiWin.innerText = `${result.win.toFixed(2)} €`;
-                    this.tweens.add({ targets: uiWin, scaleX: 1.1, scaleY: 1.1, yoyo: true, duration: 150 });
-                    await new Promise(res => setTimeout(res, 1000));
+                    uiWin.classList.add('win-value');
+                    
+                    if(result.win >= 50) {
+                        this.showOverlayMsg(`EPIC WIN\n${result.win.toFixed(2)} €`, "var(--accent)");
+                        await new Promise(res => setTimeout(res, 2500));
+                    } else {
+                        // Kleiner Bounce für UI
+                        uiWin.style.transform = "scale(1.3)";
+                        setTimeout(() => uiWin.style.transform = "scale(1)", 200);
+                        await new Promise(res => setTimeout(res, 1000));
+                    }
                 }
 
+                // 5. Game State Logic Handling
                 if (result.nextAction === 'DUEL_SPIN') {
                     this.showOverlayMsg("DUEL SPIN!", "#ff0044");
                     uiWinLabel.innerText = "DUEL SPIN";
@@ -332,7 +531,7 @@
                     await new Promise(res => setTimeout(res, 800));
                     this.startSpin();
                 } else if (result.nextAction === 'END_BONUS') {
-                    this.showOverlayMsg(`TOTAL WIN\n${result.totalBonusWin.toFixed(2)} €`, "#00ff44");
+                    this.showOverlayMsg(`TOTAL WIN\n${result.totalBonusWin.toFixed(2)} €`, "var(--accent)");
                     this.tweens.add({ targets: this.bonusBg, alpha: 0, duration: 1000 }); 
                     uiWinLabel.innerText = "WIN";
                     bulletCounter.style.display = 'none';
@@ -345,7 +544,16 @@
             }
         }
 
-        const config = { type: Phaser.CANVAS, width: 1000, height: 720, parent: 'phaser-canvas', transparent: true, scene: [GameScene] };
+        // Phaser Konfiguration (WebGL enabled)
+        const config = { 
+            type: Phaser.AUTO, 
+            width: 1000, 
+            height: 750, 
+            parent: 'phaser-canvas', 
+            transparent: true, 
+            scene: [GameScene],
+            powerPreference: "high-performance"
+        };
         const game = new Phaser.Game(config);
     </script>
 </body>
