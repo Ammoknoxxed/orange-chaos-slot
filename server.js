@@ -7,266 +7,236 @@ app.use(express.json());
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-const MONGO_URL = process.env.MONGO_URL || ''; 
-if (MONGO_URL) {
-    mongoose.connect(MONGO_URL).then(() => console.log('✅ Mit MongoDB verbunden!')).catch(err => console.error('❌ MongoDB Fehler:', err));
-}
+// ==========================================
+// CHAOS ORANGE ENGINE: SCATTER PAYS & CASCADES
+// ==========================================
+const COLS = 6;
+const ROWS = 5;
 
-// ==========================================
-// CHAOS ORANGE ENGINE (Extreme Volatility)
-// ==========================================
+// Scatter Pays: Payouts für 8-9, 10-11, 12+ Symbole
 const symbols = [
-    { name: 'ORANGE', weight: 5,  pays: [0, 0, 0, 4, 10, 20] },   // Top Symbol
-    { name: 'ROLEX',  weight: 10, pays: [0, 0, 0, 2, 6, 12] },    
-    { name: 'BÜNDEL', weight: 15, pays: [0, 0, 0, 2, 6, 12] },    
-    { name: 'ENERGY', weight: 20, pays: [0, 0, 0, 1, 3, 6] },     
-    { name: 'CAP',    weight: 25, pays: [0, 0, 0, 1, 3, 6] },     
-    { name: 'ACE',    weight: 40, pays: [0, 0, 0, 0.2, 1, 2] },
-    { name: 'KING',   weight: 50, pays: [0, 0, 0, 0.2, 1, 2] },
-    { name: 'QUEEN',  weight: 60, pays: [0, 0, 0, 0.2, 1, 2] },
-    { name: 'JACK',   weight: 70, pays: [0, 0, 0, 0.2, 1, 2] },
-    { name: 'TEN',    weight: 80, pays: [0, 0, 0, 0.2, 1, 2] },
-    { name: 'WILD',   weight: 10, pays: [0, 0, 0, 0, 0, 20], isWild: true }, 
-    { name: 'JUICER', weight: 8,  pays: [0, 0, 0, 0, 0, 0] }, // Expanding VS
-    { name: 'BOMBER', weight: 5,  pays: [0, 0, 0, 0, 0, 0] }, // Gunman/Bomber
-    { name: 'SCATTER',weight: 40, pays: [0, 0, 0, 0, 0, 0], isScatter: true } 
+    { name: 'ORANGE',  pays: [10, 25, 50], weight: 10, isPremium: true },
+    { name: 'ROLEX',   pays: [2.5, 10, 25], weight: 20, isPremium: true },
+    { name: 'CASH',    pays: [2, 5, 15], weight: 30, isPremium: true },
+    { name: 'ENERGY',  pays: [1.5, 2, 10], weight: 40, isPremium: true },
+    { name: 'A',       pays: [1, 1.5, 5], weight: 60 },
+    { name: 'K',       pays: [0.8, 1.2, 4], weight: 70 },
+    { name: 'Q',       pays: [0.5, 1, 3], weight: 80 },
+    { name: 'J',       pays: [0.4, 0.9, 2], weight: 90 },
+    { name: 'BOMB',    weight: 8, isMulti: true }, 
+    { name: 'SCATTER', weight: 6, isScatter: true } 
 ];
 
-// Die absolut kranken Hacksaw-Multis (bis 1000x für den totalen Wahnsinn)
-const multipliers = [2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 25, 50, 75, 100, 250, 500, 1000];
+const bombMultis = [2, 3, 4, 5, 8, 10, 15, 20, 25, 50, 100, 250, 500];
 
-// 19 Gewinnlinien
-const paylines = [
-    [0,0,0,0,0], [1,1,1,1,1], [2,2,2,2,2], [3,3,3,3,3], [4,4,4,4,4], 
-    [0,1,2,1,0], [1,2,3,2,1], [2,3,4,3,2], [4,3,2,3,4], [3,2,1,2,3], 
-    [2,1,0,1,2], [0,1,2,3,4], [4,3,2,1,0], [0,0,1,2,3], [4,4,3,2,1],
-    [1,1,2,3,4], [3,3,2,1,0], [0,2,4,2,0], [4,2,0,2,4]
-];
-
+// Game State (Simulated per Session - in real prod use DB/Sessions)
 let gameState = {
     mode: 'BASE',
     freeSpinsLeft: 0,
     totalBonusWin: 0,
-    dropsCollected: 0,
-    chaosDropsUnlocked: 0,
-    chaosDropsQueue: 0
+    globalMultiplier: 0
 };
-
 let dummyBalance = 1000;
 
-app.get('/', (req, res) => res.render('slot', { user: { username: 'Juicer', balance: dummyBalance } }));
+function getRandomSymbol(mode = 'BASE') {
+    let pool = symbols;
+    let totalW = pool.reduce((sum, sym) => sum + sym.weight, 0);
+    let r = Math.random() * totalW;
+    for (const sym of pool) {
+        if (r < sym.weight) {
+            // Wenn Bombe, weise Multi zu
+            if (sym.name === 'BOMB') {
+                return { name: 'BOMB', multi: bombMultis[Math.floor(Math.random() * bombMultis.length)] };
+            }
+            return { name: sym.name };
+        }
+        r -= sym.weight;
+    }
+    return { name: 'J' };
+}
+
+function generateGrid() {
+    let grid = [];
+    for(let c = 0; c < COLS; c++) {
+        let col = [];
+        for(let r = 0; r < ROWS; r++) col.push(getRandomSymbol());
+        grid.push(col);
+    }
+    return grid;
+}
+
+// Prüft, ob es auf dem Grid einen Gewinn gibt (>= 8 gleiche)
+function evaluateGrid(grid) {
+    let counts = {};
+    let positions = {};
+    
+    for(let c = 0; c < COLS; c++) {
+        for(let r = 0; r < ROWS; r++) {
+            let sym = grid[c][r].name;
+            if(sym !== 'SCATTER' && sym !== 'BOMB') {
+                counts[sym] = (counts[sym] || 0) + 1;
+                if(!positions[sym]) positions[sym] = [];
+                positions[sym].push({c, r});
+            }
+        }
+    }
+
+    let wins = [];
+    let symbolsToRemove = [];
+    let stepWin = 0;
+
+    for (let sym in counts) {
+        if (counts[sym] >= 8) {
+            let count = counts[sym];
+            let payIndex = count >= 12 ? 2 : (count >= 10 ? 1 : 0);
+            let symData = symbols.find(s => s.name === sym);
+            let payout = symData.pays[payIndex];
+            
+            stepWin += payout;
+            wins.push({ symbol: sym, count: count, payout: payout, positions: positions[sym] });
+            symbolsToRemove.push(...positions[sym]);
+        }
+    }
+    return { wins, stepWin, symbolsToRemove };
+}
+
+function applyGravity(grid, symbolsToRemove) {
+    let newGrid = [];
+    for(let c = 0; c < COLS; c++) {
+        let newCol = [];
+        for(let r = ROWS - 1; r >= 0; r--) {
+            if(!symbolsToRemove.some(pos => pos.c === c && pos.r === r)) {
+                newCol.unshift(grid[c][r]); 
+            }
+        }
+        while(newCol.length < ROWS) newCol.unshift(getRandomSymbol());
+        newGrid.push(newCol);
+    }
+    return newGrid;
+}
+
+app.get('/', (req, res) => res.render('slot', { user: { balance: dummyBalance } }));
 
 app.post('/api/spin', (req, res) => {
-    let betAmount = gameState.mode === 'BASE' ? 1 : 0;
-    if (gameState.mode === 'BASE' && dummyBalance < betAmount) return res.json({ error: "BROKE!" });
-    dummyBalance -= betAmount;
+    const isBonusBuy = req.body.buyFeature === true;
+    let betAmount = 1;
+    let cost = isBonusBuy ? betAmount * 100 : betAmount;
 
-    let isChaosDrop = gameState.mode === 'CHAOS_DROP';
-    let grid = Array(5).fill(null).map(() => Array(5).fill(null));
+    if (gameState.mode === 'BASE' && dummyBalance < cost) return res.json({ error: "BROKE!" });
+    if (gameState.mode === 'BASE') dummyBalance -= cost;
+
+    if (isBonusBuy && gameState.mode === 'BASE') {
+        gameState.mode = 'FREE_SPINS';
+        gameState.freeSpinsLeft = 15;
+        gameState.globalMultiplier = 0;
+        gameState.totalBonusWin = 0;
+    }
+
+    let grid = generateGrid();
     
-    // Feature Rule
-    let allowedFeature = Math.random() > 0.5 ? 'JUICER' : 'BOMBER';
-    if (gameState.mode === 'CHAOS_SPINS' && !isChaosDrop) allowedFeature = 'BOMBER'; 
-    if (isChaosDrop) allowedFeature = 'JUICER';
+    // Bonus Buy Scatter Garantie
+    if(isBonusBuy) {
+        let scCols = [0,1,2,3,4,5].sort(()=>0.5-Math.random()).slice(0,4);
+        scCols.forEach(c => grid[c][Math.floor(Math.random()*ROWS)] = {name: 'SCATTER'});
+    }
 
-    let bombersOnGrid = 0;
-    let scatterCount = 0;
-    let earlyScatters = 0; // Für die Teaser-Logik
+    let cascades = [];
+    let cascadeActive = true;
+    let totalBaseWin = 0;
+    let stepCount = 0;
 
-    for (let col = 0; col < 5; col++) {
-        let colHasFeature = false;
-        let scatterInThisCol = false;
+    // SCATTER CHECK (Initial Grid)
+    let initialScatters = 0;
+    for(let c=0; c<COLS; c++) for(let r=0; r<ROWS; r++) if(grid[c][r].name === 'SCATTER') initialScatters++;
 
-        for (let row = 0; row < 5; row++) {
-            let symPool = symbols.filter(s => {
-                if (s.name === 'SCATTER' && gameState.mode === 'CHAOS_SPINS') return false; 
-                if (s.name === 'JUICER' && (allowedFeature !== 'JUICER' || colHasFeature)) return false; 
-                if (s.name === 'BOMBER' && (allowedFeature !== 'BOMBER' || colHasFeature || bombersOnGrid >= 2)) return false; 
-                return true;
-            });
-
-            if (gameState.mode === 'JUICE_SPINS') {
-                let j = symPool.find(s=>s.name==='JUICER'); if(j) j.weight = 15;
-                let b = symPool.find(s=>s.name==='BOMBER'); if(b) b.weight = 12;
-            }
-
-            let totalW = symPool.reduce((sum, sym) => sum + sym.weight, 0);
-            let r = Math.random() * totalW;
-            let chosen = symPool[symPool.length - 1];
-            for (const sym of symPool) { if (r < sym.weight) { chosen = sym; break; } r -= sym.weight; }
-
-            grid[row][col] = chosen.name;
-            
-            if (chosen.isScatter) {
-                scatterCount++;
-                scatterInThisCol = true;
-            }
-            if (chosen.name === 'JUICER' || chosen.name === 'BOMBER') colHasFeature = true;
-            if (chosen.name === 'BOMBER') bombersOnGrid++;
-        }
+    // CASCADING LOOP
+    while(cascadeActive && stepCount < 20) {
+        let evalResult = evaluateGrid(grid);
         
-        // Zähle Scatters auf den ersten 3 Walzen für den Tension-Spin
-        if (col < 3 && scatterInThisCol) earlyScatters++;
+        // Push current state
+        cascades.push({
+            grid: JSON.parse(JSON.stringify(grid)), // Deep copy
+            wins: evalResult.wins,
+            stepWin: evalResult.stepWin,
+            removed: evalResult.symbolsToRemove
+        });
+
+        if (evalResult.wins.length > 0) {
+            totalBaseWin += evalResult.stepWin;
+            grid = applyGravity(grid, evalResult.symbolsToRemove);
+            stepCount++;
+        } else {
+            cascadeActive = false; 
+        }
     }
 
-    // Teaser Logik: Wenn auf den ersten 3 Walzen schon 2 Scatter sind -> Hype auf Walze 4 und 5!
-    let isTeaser = (earlyScatters >= 2 && gameState.mode === 'BASE');
+    // MULTIPLIER BOMB LOGIC
+    let finalGrid = cascades[cascades.length - 1].grid;
+    let stepBombs = [];
+    let totalBombMulti = 0;
 
-    // CHAOS DROP Guaranteed Juicers
-    if (isChaosDrop) {
-        let juicersToPlace = Math.min(5, gameState.chaosDropsUnlocked + 1);
-        let cols = [0,1,2,3,4].sort(() => 0.5 - Math.random()).slice(0, juicersToPlace);
-        cols.forEach(c => grid[Math.floor(Math.random()*5)][c] = 'JUICER');
-    }
-
-    let bombersExpanded = [];
-    let juicersExpanded = [];
-    let splattersFired = [];
-
-    // BOMBER SPLATTER LOGIC
-    for (let c = 0; c < 5; c++) {
-        for (let r = 0; r < 5; r++) {
-            if (grid[r][c] === 'BOMBER') {
-                let drops = Math.floor(Math.random() * 6) + 1;
-                let multi = multipliers[Math.floor(Math.random() * multipliers.length)];
-                
-                let availableSpots = [];
-                for(let rr=0; rr<5; rr++) for(let cc=0; cc<5; cc++) {
-                    if (cc !== c && grid[rr][cc] !== 'WILD' && grid[rr][cc] !== 'BOMBER') availableSpots.push({r:rr, c:cc});
-                }
-                availableSpots = availableSpots.sort(() => 0.5 - Math.random()).slice(0, drops);
-                availableSpots.forEach(spot => {
-                    grid[spot.r][spot.c] = 'WILD';
-                    splattersFired.push({r: spot.r, c: spot.c});
-                });
-
-                bombersExpanded.push({ col: c, multi: multi, drops: drops, origin: {r, c} });
-                for(let i=0; i<5; i++) grid[i][c] = 'WILD_BOMBER'; 
-                
-                if (gameState.mode === 'CHAOS_SPINS') {
-                    gameState.dropsCollected += drops;
-                    while (gameState.dropsCollected >= 6) {
-                        gameState.dropsCollected -= 6;
-                        gameState.chaosDropsUnlocked++;
-                        gameState.chaosDropsQueue++;
-                        gameState.freeSpinsLeft += 3;
-                    }
-                }
+    for(let c=0; c<COLS; c++) {
+        for(let r=0; r<ROWS; r++) {
+            if(finalGrid[c][r].name === 'BOMB') {
+                stepBombs.push({c, r, multi: finalGrid[c][r].multi});
+                totalBombMulti += finalGrid[c][r].multi;
             }
         }
     }
 
-    // JUICER WIN-CHECK LOGIC
-    let activeJuicers = [];
-    for(let c=0; c<5; c++) {
-        for(let r=0; r<5; r++) if(grid[r][c] === 'JUICER') activeJuicers.push(c);
+    let finalSpinWin = totalBaseWin;
+    
+    // Wenn es einen Base-Gewinn gab und Bomben liegen, multipliziere!
+    if (totalBaseWin > 0) {
+        if (gameState.mode === 'FREE_SPINS') {
+            if (totalBombMulti > 0) gameState.globalMultiplier += totalBombMulti;
+            if (gameState.globalMultiplier > 0) finalSpinWin = totalBaseWin * gameState.globalMultiplier;
+        } else {
+            if (totalBombMulti > 0) finalSpinWin = totalBaseWin * totalBombMulti;
+        }
     }
 
-    if (activeJuicers.length > 0) {
-        let virtualGrid = JSON.parse(JSON.stringify(grid));
-        activeJuicers.forEach(c => { for(let r=0; r<5; r++) virtualGrid[r][c] = 'WILD_TEST'; });
+    dummyBalance += finalSpinWin;
+    if (gameState.mode === 'FREE_SPINS') gameState.totalBonusWin += finalSpinWin;
 
-        let winningJuicers = new Set();
-        paylines.forEach(line => {
-            let matchCount = 0; let target = null; let lineJuicers = [];
-            for (let c=0; c<5; c++) {
-                let sym = virtualGrid[line[c]][c];
-                if (sym === 'SCATTER') break;
-                let isW = sym.includes('WILD');
-                if (!target && !isW) target = sym;
-                if (isW || sym === target) { 
-                    matchCount++; 
-                    if(sym === 'WILD_TEST') lineJuicers.push(c);
-                } else break;
-            }
-            if (matchCount >= 3) lineJuicers.forEach(j => winningJuicers.add(j));
-        });
-
-        winningJuicers.forEach(c => {
-            let m1 = multipliers[Math.floor(Math.random() * multipliers.length)];
-            let m2 = multipliers[Math.floor(Math.random() * multipliers.length)];
-            let winner = Math.random() > 0.5 ? m1 : m2; // Visual Tease possible later
-            juicersExpanded.push({ col: c, multi: winner });
-            for(let r=0; r<5; r++) grid[r][c] = 'WILD_JUICER';
-        });
+    // TRIGGER FREE SPINS FROM BASE GAME
+    let triggeredBonus = false;
+    if (gameState.mode === 'BASE' && initialScatters >= 4) {
+        gameState.mode = 'FREE_SPINS';
+        gameState.freeSpinsLeft = 15;
+        gameState.globalMultiplier = 0;
+        gameState.totalBonusWin = 0;
+        triggeredBonus = true;
     }
 
-    // GEWINNBERECHNUNG
-    let totalWin = 0;
-    paylines.forEach(line => {
-        let matchCount = 0; let target = null; let lineMultis = [];
-
-        for (let c=0; c<5; c++) {
-            let sym = grid[line[c]][c];
-            if (sym === 'SCATTER') break;
-            let isW = sym.includes('WILD');
-            if (!target && !isW) target = sym;
-            if (isW || sym === target) { 
-                matchCount++; 
-                if (sym === 'WILD_BOMBER') { let b = bombersExpanded.find(x=>x.col === c); if(b && !lineMultis.includes(b.multi)) lineMultis.push(b.multi); }
-                if (sym === 'WILD_JUICER') { let v = juicersExpanded.find(x=>x.col === c); if(v && !lineMultis.includes(v.multi)) lineMultis.push(v.multi); }
-            } else break;
-        }
-
-        if (matchCount >= 3 && target) {
-            let symData = symbols.find(s=>s.name === target);
-            let baseW = (1) * symData.pays[matchCount]; 
-            let multiSum = lineMultis.length > 0 ? lineMultis.reduce((a,b)=>a+b, 0) : 1;
-            totalWin += baseW * multiSum;
-        }
-    });
-
-    if (gameState.mode !== 'BASE') gameState.totalBonusWin += totalWin;
-    dummyBalance += totalWin;
-
-    // BONUS TRIGGER LOGIK
-    let triggeredBonus = null;
-    let oldMode = gameState.mode;
-
-    if (gameState.mode === 'BASE') {
-        if (scatterCount === 3) {
-            gameState.mode = 'JUICE_SPINS'; gameState.freeSpinsLeft = 10; triggeredBonus = 'JUICE_SPINS';
-        } else if (scatterCount >= 4) {
-            gameState.mode = 'CHAOS_SPINS'; gameState.freeSpinsLeft = 10;
-            gameState.dropsCollected = 0; gameState.chaosDropsUnlocked = 0; gameState.chaosDropsQueue = 0;
-            triggeredBonus = 'CHAOS_SPINS';
-        }
-    } else if (gameState.mode === 'JUICE_SPINS') {
-        if (scatterCount === 2) gameState.freeSpinsLeft += 2;
-        if (scatterCount >= 3) gameState.freeSpinsLeft += 4;
+    // FREE SPINS RETRIGGER
+    if (gameState.mode === 'FREE_SPINS' && initialScatters >= 3 && !triggeredBonus && !isBonusBuy) {
+        gameState.freeSpinsLeft += 5;
     }
 
     let nextAction = 'SPIN';
-    if (gameState.mode !== 'BASE' && oldMode !== 'BASE') {
-        if (isChaosDrop) {
-            gameState.chaosDropsQueue--;
-            if (gameState.chaosDropsQueue === 0) gameState.mode = 'CHAOS_SPINS';
-        } else if (gameState.chaosDropsQueue > 0) {
-            gameState.mode = 'CHAOS_DROP'; nextAction = 'CHAOS_DROP';
-        } else {
-            gameState.freeSpinsLeft--;
-        }
-        if (gameState.freeSpinsLeft <= 0 && gameState.chaosDropsQueue <= 0) {
-            nextAction = 'END_BONUS'; gameState.mode = 'BASE';
+    if (gameState.mode === 'FREE_SPINS' && !triggeredBonus && !isBonusBuy) {
+        gameState.freeSpinsLeft--;
+        if (gameState.freeSpinsLeft <= 0) {
+            nextAction = 'END_BONUS';
+            gameState.mode = 'BASE';
         }
     }
 
     res.json({
-        grid: grid, 
-        win: totalWin, 
-        scatters: scatterCount, 
-        bombers: bombersExpanded, 
-        splatters: splattersFired,
-        juicers: juicersExpanded, 
-        newBalance: dummyBalance, 
-        bonusTriggered: triggeredBonus, 
+        cascades: cascades,
+        bombs: stepBombs,
+        totalBaseWin: totalBaseWin,
+        finalSpinWin: finalSpinWin,
+        scatters: initialScatters,
+        newBalance: dummyBalance,
+        bonusTriggered: triggeredBonus,
         spinsLeft: gameState.freeSpinsLeft,
-        totalBonusWin: gameState.totalBonusWin, 
-        nextAction: nextAction,
-        drops: gameState.dropsCollected,
-        isTeaser: isTeaser // TEASER FLAG FÜR FRONTEND!
+        globalMultiplier: gameState.globalMultiplier,
+        totalBonusWin: gameState.totalBonusWin,
+        nextAction: nextAction
     });
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🍊 CHAOS ORANGE läuft auf Port ${PORT}`));
+app.listen(PORT, () => console.log(`🍊 CHAOS CASCADES laufen auf Port ${PORT}`));
