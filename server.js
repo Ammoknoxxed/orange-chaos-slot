@@ -53,6 +53,10 @@ const SpinHistory = mongoose.model('SpinHistory', SpinHistorySchema);
 // ==========================================
 // SESSION CONFIGURATION (FIXED FOR PRODUCTION)
 // ==========================================
+
+// 🔥 FIX: WICHTIG! Damit Express das Secure-Cookie hinter einem Proxy (Railway, Heroku etc.) sendet:
+app.set('trust proxy', 1);
+
 app.use(session({
     secret: process.env.SESSION_SECRET || 'chaos-orange-secret-key-change-this',
     resave: false,
