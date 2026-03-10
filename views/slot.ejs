@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,143 +7,325 @@
     <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* =========================================
-           UI STYLING (STAKE / GATES OF OLYMPUS STYLE)
-           ========================================= */
-        @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Inter:wght@700;900&display=swap');
-
         :root {
             --bg-dark: #050a0f;
             --panel-bg: #0b131a;
-            --accent-main: #ff5500; 
+            --accent-main: #ff5500;
             --toxic-green: #00e701;
             --text-main: #8a9ba8;
         }
 
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             background-color: var(--bg-dark);
-            margin: 0; display: flex; justify-content: center; align-items: center;
-            height: 100vh; overflow: hidden; font-family: 'Inter', sans-serif;
+            font-family: 'Inter', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
             background: radial-gradient(circle at center, #1a0800 0%, #000 100%);
         }
 
         #game-wrapper {
-            position: relative; width: 1000px; height: 850px;
-            background: #000; border-radius: 20px;
+            position: relative;
+            width: 1000px;
+            height: 850px;
+            background: #000;
+            border-radius: 20px;
             box-shadow: 0 0 50px rgba(255, 85, 0, 0.1), 0 0 0 2px rgba(255, 255, 255, 0.05);
             overflow: hidden;
         }
 
-        #phaser-canvas { width: 100%; height: 750px; }
+        #phaser-canvas {
+            width: 100%;
+            height: 750px;
+        }
 
-        /* =========================================
-           TOP HUD (Multipliers & Free Spins)
-           ========================================= */
         #top-hud {
-            position: absolute; top: 20px; left: 20px; right: 20px;
-            display: flex; justify-content: space-between; z-index: 100;
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            display: flex;
+            justify-content: space-between;
+            z-index: 100;
             pointer-events: none;
         }
-        .hud-box {
-            background: rgba(0,0,0,0.8); border: 2px solid rgba(255,255,255,0.1);
-            padding: 10px 20px; border-radius: 12px; backdrop-filter: blur(5px);
-            text-align: center; display: none; transform: scale(0.9); transition: 0.3s;
-        }
-        .hud-box.active { display: block; transform: scale(1); }
-        .hud-label { color: var(--text-main); font-size: 12px; letter-spacing: 2px; }
-        .hud-value { font-family: 'Black Ops One'; font-size: 28px; color: var(--toxic-green); }
-        .hud-multi { color: var(--accent-main); }
 
-        /* =========================================
-           BOTTOM CONTROL BAR
-           ========================================= */
+        .hud-box {
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(5px);
+            text-align: center;
+            display: none;
+            transform: scale(0.9);
+            transition: 0.3s;
+        }
+
+        .hud-box.active {
+            display: block;
+            transform: scale(1);
+        }
+
+        .hud-label {
+            color: var(--text-main);
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .hud-value {
+            font-family: 'Black Ops One', Impact;
+            font-size: 28px;
+            color: var(--toxic-green);
+        }
+
+        .hud-multi {
+            color: var(--accent-main);
+        }
+
         #control-bar {
-            position: absolute; bottom: 0; width: 100%; height: 100px;
-            background: var(--panel-bg); border-top: 2px solid rgba(255,255,255,0.05);
-            display: flex; justify-content: space-between; align-items: center; padding: 0 40px;
-            box-sizing: border-box; z-index: 100;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100px;
+            background: var(--panel-bg);
+            border-top: 2px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            box-sizing: border-box;
+            z-index: 100;
         }
 
         .panel-box {
-            background: rgba(0,0,0,0.3); padding: 10px 20px; border-radius: 8px;
-            min-width: 140px; border: 1px solid rgba(255,255,255,0.02); display: flex; flex-direction: column;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 8px;
+            min-width: 140px;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            display: flex;
+            flex-direction: column;
         }
 
-        .panel-label { color: var(--text-main); font-size: 11px; text-transform: uppercase; font-weight: 900; letter-spacing: 1px; }
-        .panel-value { color: #fff; font-size: 22px; font-weight: 900; }
-        
-        .win-box { background: rgba(0, 231, 1, 0.05); border-color: rgba(0, 231, 1, 0.2); text-align: center; min-width: 200px; transition: transform 0.2s;}
-        .win-value { color: var(--toxic-green); font-size: 30px; text-shadow: 0 0 15px rgba(0, 231, 1, 0.4); }
+        .panel-label {
+            color: var(--text-main);
+            font-size: 11px;
+            text-transform: uppercase;
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+
+        .panel-value {
+            color: #fff;
+            font-size: 22px;
+            font-weight: 900;
+        }
+
+        .win-box {
+            background: rgba(0, 231, 1, 0.05);
+            border-color: rgba(0, 231, 1, 0.2);
+            text-align: center;
+            min-width: 200px;
+            transition: transform 0.2s;
+        }
+
+        .win-value {
+            color: var(--toxic-green);
+            font-size: 30px;
+            text-shadow: 0 0 15px rgba(0, 231, 1, 0.4);
+        }
 
         .btn-buy {
-            background: transparent; border: 2px solid var(--accent-main); color: var(--accent-main);
-            font-weight: 900; padding: 10px 15px; border-radius: 8px; cursor: pointer; transition: 0.2s;
-            text-transform: uppercase; font-size: 14px;
+            background: transparent;
+            border: 2px solid var(--accent-main);
+            color: var(--accent-main);
+            font-weight: 900;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.2s;
+            text-transform: uppercase;
+            font-size: 14px;
         }
-        .btn-buy:hover { background: var(--accent-main); color: #000; box-shadow: 0 0 15px var(--accent-glow); }
+
+        .btn-buy:hover {
+            background: var(--accent-main);
+            color: #000;
+            box-shadow: 0 0 15px var(--accent-main);
+        }
+
+        .btn-buy:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
 
         #spin-btn {
-            width: 75px; height: 75px; border-radius: 50%;
-            background: linear-gradient(135deg, var(--toxic-green), #00b300); border: none; color: #000; font-size: 26px;
-            cursor: pointer; display: flex; justify-content: center; align-items: center;
-            box-shadow: 0 0 20px rgba(0, 231, 1, 0.4); transition: 0.1s; outline: none;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--toxic-green), #00b300);
+            border: none;
+            color: #000;
+            font-size: 26px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 0 20px rgba(0, 231, 1, 0.4);
+            transition: 0.1s;
+            outline: none;
         }
-        #spin-btn:hover { transform: scale(1.1); background: #fff; }
-        #spin-btn:active { transform: scale(0.9); }
-        #spin-btn:disabled { background: #222; color: #555; box-shadow: none; transform: scale(1); cursor: not-allowed; border: 2px solid #333; }
 
-        /* =========================================
-           OVERLAYS
-           ========================================= */
+        #spin-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(0, 231, 1, 0.6);
+        }
+
+        #spin-btn:active {
+            transform: scale(0.9);
+        }
+
+        #spin-btn:disabled {
+            background: #222;
+            color: #555;
+            box-shadow: none;
+            transform: scale(1);
+            cursor: not-allowed;
+            border: 2px solid #333;
+        }
+
         #msg-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 750px;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            background: rgba(0, 0, 0, 0.8); z-index: 200; opacity: 0; pointer-events: none; transition: 0.3s;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 750px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
         }
-        #msg-overlay.active { opacity: 1; pointer-events: all; }
+
+        #msg-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
         .msg-text {
-            font-family: 'Black Ops One'; font-size: 80px; color: var(--accent-main);
-            text-transform: uppercase; text-shadow: 0 10px 40px #ff0000;
-            transform: scale(0.5); transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            text-align: center; line-height: 1.1;
+            font-family: 'Black Ops One', Impact;
+            font-size: 80px;
+            color: var(--accent-main);
+            text-transform: uppercase;
+            text-shadow: 0 10px 40px #ff0000;
+            transform: scale(0.5);
+            transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            line-height: 1.1;
         }
-        #msg-overlay.active .msg-text { transform: scale(1); }
+
+        #msg-overlay.active .msg-text {
+            transform: scale(1);
+        }
+
+        .bet-input {
+            width: 60px;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border-radius: 4px;
+            text-align: center;
+        }
+
+        .stats-link {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            color: var(--accent-main);
+            text-decoration: none;
+            font-size: 14px;
+            z-index: 100;
+            transition: 0.3s;
+        }
+
+        .stats-link:hover {
+            color: var(--toxic-green);
+        }
+
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 120px;
+            background: rgba(255, 85, 0, 0.2);
+            border: 1px solid var(--accent-main);
+            color: var(--accent-main);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            z-index: 100;
+            transition: 0.3s;
+        }
+
+        .logout-btn:hover {
+            background: var(--accent-main);
+            color: #000;
+        }
     </style>
 </head>
 <body>
-
     <div id="game-wrapper">
+        <a href="/api/stats" class="stats-link" target="_blank"><i class="fas fa-chart-bar"></i> Stats</a>
+        <a href="/logout" class="logout-btn">Logout</a>
+
         <div id="top-hud">
             <div class="hud-box" id="fs-hud">
-                <div class="hud-label">FREE SPINS</div>
+                <div class="hud-label">Free Spins</div>
                 <div class="hud-value" id="fs-count">0</div>
             </div>
             <div class="hud-box" id="multi-hud">
-                <div class="hud-label">GLOBAL MULTIPLIER</div>
+                <div class="hud-label">Global Multiplier</div>
                 <div class="hud-value hud-multi" id="global-multi">x0</div>
             </div>
         </div>
 
         <div id="phaser-canvas"></div>
-        
-        <div id="msg-overlay"><div class="msg-text" id="main-msg">CHAOS!</div></div>
+
+        <div id="msg-overlay">
+            <div class="msg-text" id="main-msg">CHAOS!</div>
+        </div>
 
         <div id="control-bar">
             <div class="panel-box">
                 <span class="panel-label">Balance</span>
-                <span class="panel-value"><span id="ui-balance"><%= user.balance.toFixed(2) %></span> €</span>
+                <span class="panel-value"><span id="ui-balance"><%= user.balance.toFixed(2) %></span>€</span>
             </div>
-            
+
             <div class="panel-box win-box" id="win-box-container">
                 <span class="panel-label">Cascade Win</span>
-                <span class="panel-value win-value" id="ui-win">0.00 €</span>
+                <span class="panel-value win-value" id="ui-win">0.00€</span>
             </div>
 
             <div style="display: flex; gap: 20px; align-items: center;">
-                <button class="btn-buy" id="buy-btn"><i class="fas fa-shopping-cart me-1"></i> Buy Feature</button>
+                <button class="btn-buy" id="buy-btn"><i class="fas fa-shopping-cart"></i> Buy Feature</button>
                 <div class="panel-box" style="text-align: center; min-width: 90px;">
                     <span class="panel-label">Bet</span>
-                    <span class="panel-value">1.00 €</span>
+                    <input type="number" id="bet-input" class="bet-input" min="0.1" max="100" step="0.1" value="1">
                 </div>
                 <button id="spin-btn"><i class="fas fa-redo-alt"></i></button>
             </div>
@@ -156,113 +338,77 @@
         const winBoxContainer = document.getElementById('win-box-container');
         const spinBtn = document.getElementById('spin-btn');
         const buyBtn = document.getElementById('buy-btn');
-        
         const msgOverlay = document.getElementById('msg-overlay');
         const mainMsg = document.getElementById('main-msg');
         const fsHud = document.getElementById('fs-hud');
         const fsCount = document.getElementById('fs-count');
         const multiHud = document.getElementById('multi-hud');
         const globalMulti = document.getElementById('global-multi');
+        const betInput = document.getElementById('bet-input');
 
-        // Layout Constants
-        const COLS = 6; 
+        const COLS = 6;
         const ROWS = 5;
-        const SYMBOL_W = 120; 
-        const SYMBOL_H = 120; 
-        const OFFSET_X = 140; 
-        const OFFSET_Y = 75;  
+        const SYMBOL_W = 120;
+        const SYMBOL_H = 120;
+        const OFFSET_X = 140;
+        const OFFSET_Y = 75;
 
-        // UI Definitionen der Symbole (Für Fallbacks und Farben)
         const styleMap = {
-            'ORANGE':  { t: 'ORG', c: '#ff5500', p: true },
-            'ROLEX':   { t: 'RLX', c: '#ffcc00', p: true },
-            'CASH':    { t: 'CASH', c: '#00ff44', p: true },
-            'ENERGY':  { t: 'NRG', c: '#00ccff', p: true },
-            'A':       { t: 'A', c: '#ffffff' },
-            'K':       { t: 'K', c: '#dddddd' },
-            'Q':       { t: 'Q', c: '#bbbbbb' },
-            'J':       { t: 'J', c: '#999999' },
-            '10':     { t: '10', c: '#777777' },
-            'BOMB':    { t: 'BOMB', c: '#ff0044' }, 
-            'SCATTER': { t: 'FS', c: '#ffcc00' } 
+            'ORANGE': { t: 'ORG', c: '#ff5500', p: true },
+            'ROLEX': { t: 'RLX', c: '#ffcc00', p: true },
+            'CASH': { t: 'CASH', c: '#00ff44', p: true },
+            'ENERGY': { t: 'NRG', c: '#00ccff', p: true },
+            'A': { t: 'A', c: '#ffffff' },
+            'K': { t: 'K', c: '#dddddd' },
+            'Q': { t: 'Q', c: '#bbbbbb' },
+            'J': { t: 'J', c: '#999999' },
+            'TEN': { t: '10', c: '#777777' },
+            'BOMB': { t: 'BOMB', c: '#ff0044' },
+            'SCATTER': { t: 'FS', c: '#ffcc00' }
         };
 
         let isAutoPlay = false;
-        let isFreeSpins = false;
-
-        // Flüssiges Hochzählen von Beträgen
-        function rollNum(el, start, end, duration) {
-            let startT = null;
-            const step = (t) => {
-                if(!startT) startT = t;
-                let prog = Math.min((t - startT) / duration, 1);
-                let ease = prog === 1 ? 1 : 1 - Math.pow(2, -10 * prog);
-                el.innerText = (start + ease * (end - start)).toFixed(2) + " €";
-                if(prog < 1) window.requestAnimationFrame(step);
-            };
-            window.requestAnimationFrame(step);
-        }
+        let isFreeSpin = false;
 
         class GameScene extends Phaser.Scene {
-            constructor() { super('GameScene'); }
+            constructor() {
+                super('GameScene');
+            }
 
             preload() {
-                // ========================================================
-                // 🖼️ HIER EIGENE BILDER LADEN!
-                // Entferne die "//" vor "this.load.image", sobald du die 
-                // Bilder in den Ordner /public/images/symbols/ gelegt hast.
-                // ========================================================
-                
-                 this.load.image('ORANGE', '/images/symbols/orange.png');
-                 this.load.image('ROLEX', '/images/symbols/rolex.png');
-                 this.load.image('CASH', '/images/symbols/cash.png');
-                 this.load.image('ENERGY', '/images/symbols/energy.png');
-                 this.load.image('A', '/images/symbols/ace.png');
-                 this.load.image('K', '/images/symbols/king.png');
-                 this.load.image('Q', '/images/symbols/queen.png');
-                 this.load.image('J', '/images/symbols/jack.png');
-                 this.load.image('10', '/images/symbols/10.png');
-                 this.load.image('BOMB', '/images/symbols/bomb.png');
-                 this.load.image('SCATTER', '/images/symbols/scatter.png');
+                this.load.image('ORANGE', '/images/symbols/orange.png');
+                this.load.image('ROLEX', '/images/symbols/rolex.png');
+                this.load.image('CASH', '/images/symbols/cash.png');
+                this.load.image('ENERGY', '/images/symbols/energy.png');
+                this.load.image('A', '/images/symbols/ace.png');
+                this.load.image('K', '/images/symbols/king.png');
+                this.load.image('Q', '/images/symbols/queen.png');
+                this.load.image('J', '/images/symbols/jack.png');
+                this.load.image('TEN', '/images/symbols/10.png');
+                this.load.image('BOMB', '/images/symbols/bomb.png');
+                this.load.image('SCATTER', '/images/symbols/scatter.png');
             }
 
             create() {
-                // Generiere Partikel für Explosionen
-                let g = this.make.graphics({x:0, y:0, add:false});
-                g.fillStyle(0xff5500, 1); g.fillCircle(8, 8, 8); g.generateTexture('p_orange', 16, 16);
-                
-                // AUTOMATISCHE FALLBACK-GRAFIKEN generieren 
-                // (Wird genutzt, falls du noch keine PNGs geladen hast)
-                Object.keys(styleMap).forEach(key => {
-                    let fallbackGraphic = this.make.graphics({x:0, y:0, add:false});
-                    fallbackGraphic.fillStyle(parseInt(styleMap[key].c.replace('#','0x')), 1);
-                    fallbackGraphic.fillRoundedRect(0, 0, 100, 100, 16);
-                    fallbackGraphic.generateTexture('fallback_' + key, 100, 100);
-                });
-
                 this.bgGlow = this.add.rectangle(500, 400, 1000, 800, 0xff2200).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD);
 
-                // Raster Hintergründe 
-                for(let c=0; c<COLS; c++) {
-                    for(let r=0; r<ROWS; r++) {
-                        this.add.rectangle(OFFSET_X + c*SYMBOL_W, OFFSET_Y + r*SYMBOL_H, SYMBOL_W-8, SYMBOL_H-8, 0x0f151c)
-                            .setOrigin(0.5).setStrokeStyle(1, 0x1a2430);
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        this.add.rectangle(OFFSET_X + c * SYMBOL_W, OFFSET_Y + r * SYMBOL_H, SYMBOL_W - 8, SYMBOL_H - 8, 0x0f151c)
+                            .setOrigin(0.5).setStroke(1, 0x1a2430);
                     }
                 }
 
-                this.gridContainer = this.add.container(OFFSET_X, OFFSET_Y);
-                
-                // Maske für sauberes Hereinfallen
                 const mask = this.make.graphics();
                 mask.fillStyle(0xffffff);
-                mask.fillRect(OFFSET_X - SYMBOL_W/2, OFFSET_Y - SYMBOL_H/2, SYMBOL_W * COLS, SYMBOL_H * ROWS);
+                mask.fillRect(OFFSET_X - SYMBOL_W / 2, OFFSET_Y - SYMBOL_H / 2, SYMBOL_W * COLS, SYMBOL_H * ROWS);
+                this.gridContainer = this.add.container(OFFSET_X, OFFSET_Y);
                 this.gridContainer.setMask(mask.createGeometryMask());
 
                 this.displayGrid = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
-                
-                // Dummy Initialisierung
-                for(let c=0; c<COLS; c++) {
-                    for(let r=0; r<ROWS; r++) {
+
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
                         this.displayGrid[c][r] = this.createSymbol(c, r, 'J');
                     }
                 }
@@ -274,35 +420,36 @@
             createSymbol(c, r, name, multi = null) {
                 let s = styleMap[name] || styleMap['J'];
                 let container = this.add.container(c * SYMBOL_W, r * SYMBOL_H);
-                
-                // 🪄 DIE MAGIE: 
-                // Nutzt das ECHTE BILD wenn geladen, ansonsten nimmt er den bunten FALLBACK-BLOCK!
-                let imgKey = this.textures.exists(name) ? name : 'fallback_' + name;
+
+                let imgKey = this.textures.exists(name) ? name : 'J';
                 let img = this.add.image(0, 0, imgKey);
-                
-                // Größe anpassen
                 img.setDisplaySize(SYMBOL_W - 16, SYMBOL_H - 16);
                 container.add(img);
 
-                // Falls es ein Fallback ist, schreiben wir den Text drüber, damit du weißt was es ist
                 if (!this.textures.exists(name)) {
                     let fallbackText = this.add.text(0, 0, s.t, {
-                        fontFamily: 'Black Ops One, Impact', fontSize: s.p ? '35px' : '28px', 
-                        color: '#fff', stroke: '#000', strokeThickness: 5
+                        fontFamily: 'Black Ops One, Impact',
+                        fontSize: name === 'SCATTER' ? '35px' : '28px',
+                        color: '#fff',
+                        stroke: '#000',
+                        strokeThickness: 5
                     }).setOrigin(0.5);
                     container.add(fallbackText);
                 }
 
-                // Bomb Multiplier Overlay
                 if (name === 'BOMB' && multi) {
                     let multiTxt = this.add.text(0, 25, `${multi}x`, {
-                        fontFamily: 'Black Ops One', fontSize: '24px', color: '#fff', stroke: '#000', strokeThickness: 4
+                        fontFamily: 'Black Ops One',
+                        fontSize: '24px',
+                        color: '#fff',
+                        stroke: '#000',
+                        strokeThickness: 4
                     }).setOrigin(0.5);
                     container.add(multiTxt);
-                    
+
                     let glow = this.add.circle(0, 0, 45, 0xff0044, 0.5).setBlendMode(Phaser.BlendModes.ADD);
                     this.tweens.add({ targets: glow, scale: 1.3, alpha: 0.1, yoyo: true, repeat: -1, duration: 600 });
-                    container.addAt(glow, 0); // Packt Glow hinter das Bild
+                    container.addAt(glow, 0);
                 }
 
                 this.gridContainer.add(container);
@@ -310,44 +457,54 @@
             }
 
             showMsg(text, color, shake = true) {
-                mainMsg.innerText = text; mainMsg.style.color = color;
+                mainMsg.innerText = text;
+                mainMsg.style.color = color;
                 mainMsg.style.textShadow = `0 10px 50px ${color}, 0 0 15px #fff`;
                 msgOverlay.classList.add('active');
-                if(shake) this.cameras.main.shake(500, 0.02);
+                if (shake) this.cameras.main.shake(500, 0.02);
                 setTimeout(() => { msgOverlay.classList.remove('active'); }, 2000);
             }
 
             async doRequest(isBuy) {
-                spinBtn.disabled = true; buyBtn.disabled = true;
-                if(!isAutoPlay) {
-                    uiWin.innerText = "0.00 €";
-                    uiWin.style.color = "var(--toxic-green)";
+                spinBtn.disabled = true;
+                buyBtn.disabled = true;
+
+                if (!isAutoPlay) {
+                    uiWin.innerText = '0.00€';
+                    uiWin.style.color = 'var(--toxic-green)';
                 }
 
                 try {
-                    const res = await fetch('/api/spin', { 
-                        method: 'POST', 
+                    const betAmount = parseFloat(betInput.value) || 1;
+                    const res = await fetch('/api/spin', {
+                        method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ buyFeature: isBuy })
+                        body: JSON.stringify({ buyFeature: isBuy, bet: betAmount })
                     });
+
                     const data = await res.json();
-                    
-                    if(data.error) { 
-                        alert("Guthaben zu niedrig!"); 
-                        spinBtn.disabled = false; buyBtn.disabled = false; 
-                        return; 
+
+                    if (data.error) {
+                        this.showMsg(data.error, '#ff0000');
+                        spinBtn.disabled = false;
+                        buyBtn.disabled = false;
+                        return;
                     }
 
                     uiBalance.innerText = data.newBalance.toFixed(2);
                     await this.playCascades(data);
 
-                } catch(e) { console.error(e); spinBtn.disabled = false; buyBtn.disabled = false; }
+                } catch (e) {
+                    console.error(e);
+                    spinBtn.disabled = false;
+                    buyBtn.disabled = false;
+                }
             }
 
             async playCascades(data) {
                 let rollingWin = 0;
 
-                for(let i = 0; i < data.cascades.length; i++) {
+                for (let i = 0; i < data.cascades.length; i++) {
                     let step = data.cascades[i];
 
                     if (i === 0) {
@@ -357,179 +514,109 @@
                     }
 
                     if (step.wins.length > 0) {
-                        await new Promise(res => setTimeout(res, 400)); 
+                        await new Promise(res => setTimeout(res, 400));
                         await this.explodeSymbols(step.removed);
 
                         rollingWin += step.stepWin;
-                        uiWin.innerText = `${rollingWin.toFixed(2)} €`;
-                        winBoxContainer.style.transform = "scale(1.1)";
-                        setTimeout(() => winBoxContainer.style.transform = "scale(1)", 150);
+                        uiWin.innerText = `${rollingWin.toFixed(2)}€`;
+                        winBoxContainer.style.transform = 'scale(1.1)';
+                        setTimeout(() => winBoxContainer.style.transform = 'scale(1)', 150);
                     }
                 }
 
-                // BOMB MULTIPLIERS
                 if (data.totalBaseWin > 0 && data.bombs.length > 0) {
                     await new Promise(res => setTimeout(res, 400));
-                    
-                    let totalBombValue = 0;
-                    data.bombs.forEach(b => {
-                        totalBombValue += b.multi;
-                        let sym = this.displayGrid[b.c][b.r];
-                        if(sym) {
-                            this.tweens.add({ targets: sym.obj, scale: 1.4, yoyo: true, duration: 400 });
-                        }
-                    });
-                    
-                    this.showMsg(`x${totalBombValue} MULTI!`, "#ff0044");
-                    this.cameras.main.shake(600, 0.02);
-                    await new Promise(res => setTimeout(res, 1200));
-
-                    rollNum(uiWin, rollingWin, data.finalSpinWin, 1500);
-                    uiWin.style.color = "var(--accent-main)"; 
-                    setTimeout(() => uiWin.style.color = "var(--toxic-green)", 2000);
-                    
-                    await new Promise(res => setTimeout(res, 2000));
-                } else if (data.globalMultiplier > 0 && data.totalBaseWin > 0 && isFreeSpins) {
-                    rollNum(uiWin, rollingWin, data.finalSpinWin, 1000);
-                    await new Promise(res => setTimeout(res, 1200));
+                    await this.showBombMultipliers(data.bombs);
                 }
 
-                // FREE SPINS AUSLÖSUNG
                 if (data.bonusTriggered) {
-                    this.showMsg("JUICE FEST\nFREE SPINS", "#ffcc00");
-                    this.bgGlow.setFillStyle(0xff5500);
-                    this.tweens.add({ targets: this.bgGlow, alpha: 0.3, yoyo: true, repeat: -1, duration: 1000 });
-                    
-                    isFreeSpins = true;
+                    this.showMsg('FREE SPINS!', '#ffcc00');
+                    isFreeSpin = true;
                     fsHud.classList.add('active');
-                    multiHud.classList.add('active');
                     fsCount.innerText = data.spinsLeft;
-                    globalMulti.innerText = "x" + data.globalMultiplier;
-                    
-                    await new Promise(res => setTimeout(res, 3000));
-                }
-
-                if (isFreeSpins) {
+                } else if (data.spinsLeft > 0) {
+                    isFreeSpin = true;
+                    fsHud.classList.add('active');
                     fsCount.innerText = data.spinsLeft;
-                    globalMulti.innerText = "x" + data.globalMultiplier;
-                }
-
-                if (data.nextAction === 'END_BONUS') {
-                    this.showMsg(`TOTAL WIN\n${data.totalBonusWin.toFixed(2)} €`, "var(--toxic-green)");
-                    this.tweens.add({ targets: this.bgGlow, alpha: 0, duration: 1000 }); 
-                    
-                    isFreeSpins = false;
-                    isAutoPlay = false;
-                    fsHud.classList.remove('active');
-                    multiHud.classList.remove('active');
-                    
-                    await new Promise(res => setTimeout(res, 3000));
-                    spinBtn.disabled = false; buyBtn.disabled = false;
-                } else if (isFreeSpins) {
-                    isAutoPlay = true;
-                    await new Promise(res => setTimeout(res, 1000));
-                    this.doRequest(false);
                 } else {
-                    spinBtn.disabled = false; buyBtn.disabled = false;
+                    isFreeSpin = false;
+                    fsHud.classList.remove('active');
+                }
+
+                if (data.globalMultiplier > 0) {
+                    multiHud.classList.add('active');
+                    globalMulti.innerText = `x${data.globalMultiplier}`;
+                }
+
+                if (data.finalSpinWin > 0) {
+                    uiWin.innerText = `${data.finalSpinWin.toFixed(2)}€`;
+                    uiWin.style.color = data.finalSpinWin >= 100 ? '#ffcc00' : 'var(--toxic-green)';
+                }
+
+                spinBtn.disabled = false;
+                buyBtn.disabled = false;
+            }
+
+            async spawnInitialGrid(grid) {
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        let sym = grid[c][r];
+                        this.displayGrid[c][r] = this.createSymbol(c, r, sym.name, sym.multi);
+                    }
                 }
             }
 
-            async spawnInitialGrid(targetGrid) {
-                let tweens = [];
-                for(let c=0; c<COLS; c++) {
-                    for(let r=0; r<ROWS; r++) {
-                        if(this.displayGrid[c][r]) this.displayGrid[c][r].obj.destroy();
-                        
-                        let tData = targetGrid[c][r];
-                        let newSym = this.createSymbol(c, r, tData.name, tData.multi);
-                        newSym.obj.y = -300 - (Math.random()*200); 
-                        this.displayGrid[c][r] = newSym;
-
-                        tweens.push(new Promise(res => {
-                            this.tweens.add({
-                                targets: newSym.obj, y: r * SYMBOL_H,
-                                duration: 400 + (c * 80), 
-                                ease: 'Bounce.easeOut',
-                                onComplete: res
-                            });
-                        }));
+            async applyGravityVisuals(grid) {
+                for (let c = 0; c < COLS; c++) {
+                    for (let r = 0; r < ROWS; r++) {
+                        let sym = grid[c][r];
+                        this.displayGrid[c][r] = this.createSymbol(c, r, sym.name, sym.multi);
                     }
                 }
-                await Promise.all(tweens);
             }
 
-            async applyGravityVisuals(targetGrid) {
-                let tweens = [];
-                let newDisplayGrid = Array(COLS).fill(null).map(()=>Array(ROWS).fill(null));
-
-                for (let c=0; c<COLS; c++) {
-                    let writeRow = ROWS - 1; 
-
-                    for (let r=ROWS-1; r>=0; r--) {
-                        if (this.displayGrid[c][r] !== null) {
-                            let sym = this.displayGrid[c][r];
-                            newDisplayGrid[c][writeRow] = sym;
-                            
-                            if (writeRow !== r) { 
-                                tweens.push(new Promise(res => {
-                                    this.tweens.add({
-                                        targets: sym.obj, y: writeRow * SYMBOL_H,
-                                        duration: 350, ease: 'Bounce.easeOut', onComplete: res
-                                    });
-                                }));
-                            }
-                            writeRow--;
-                        }
-                    }
-                    
-                    for (let r = writeRow; r >= 0; r--) {
-                        let tData = targetGrid[c][r];
-                        let newSym = this.createSymbol(c, r, tData.name, tData.multi);
-                        
-                        newSym.obj.y = -200 - ((writeRow - r) * 100); 
-                        newDisplayGrid[c][r] = newSym;
-                        
-                        tweens.push(new Promise(res => {
-                            this.tweens.add({
-                                targets: newSym.obj, y: r * SYMBOL_H,
-                                duration: 400, ease: 'Bounce.easeOut', onComplete: res
-                            });
-                        }));
-                    }
-                }
-                this.displayGrid = newDisplayGrid;
-                if(tweens.length > 0) await Promise.all(tweens);
-            }
-
-            async explodeSymbols(removedPositions) {
-                let tweens = [];
-                removedPositions.forEach(pos => {
+            async explodeSymbols(positions) {
+                for (let pos of positions) {
                     let sym = this.displayGrid[pos.c][pos.r];
-                    if(sym && sym.obj) {
-                        let ex = this.add.particles(OFFSET_X + pos.c*SYMBOL_W, OFFSET_Y + pos.r*SYMBOL_H, 'p_orange', {
-                            speed: 200, scale: {start:1.5, end:0}, lifespan: 300, blendMode: 'ADD', emitting: false
+                    if (sym) {
+                        this.tweens.add({
+                            targets: sym.obj,
+                            scale: 0,
+                            alpha: 0,
+                            duration: 300,
+                            ease: 'Power2.out'
                         });
-                        ex.explode(15);
-                        setTimeout(()=>ex.destroy(), 400);
-
-                        tweens.push(new Promise(res => {
-                            this.tweens.add({
-                                targets: sym.obj, scale: 0, alpha: 0, duration: 250,
-                                onComplete: () => { sym.obj.destroy(); this.displayGrid[pos.c][pos.r] = null; res(); }
-                            });
-                        }));
                     }
-                });
-                
-                this.cameras.main.shake(200, 0.01);
-                await Promise.all(tweens);
+                }
+                await new Promise(res => setTimeout(res, 300));
+            }
+
+            async showBombMultipliers(bombs) {
+                for (let bomb of bombs) {
+                    let sym = this.displayGrid[bomb.c][bomb.r];
+                    if (sym) {
+                        this.tweens.add({
+                            targets: sym.obj,
+                            scale: 1.3,
+                            duration: 200,
+                            yoyo: true,
+                            repeat: 2
+                        });
+                    }
+                }
             }
         }
 
-        const config = { 
-            type: Phaser.AUTO, width: 1000, height: 750, parent: 'phaser-canvas', 
-            transparent: true, scene: [GameScene], powerPreference: "high-performance"
+        const config = {
+            type: Phaser.AUTO,
+            parent: 'phaser-canvas',
+            width: 1000,
+            height: 750,
+            backgroundColor: '#000',
+            scene: GameScene,
+            physics: { default: 'arcade', arcade: { debug: false } }
         };
+
         const game = new Phaser.Game(config);
     </script>
 </body>
