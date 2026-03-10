@@ -13,7 +13,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('public'));
 
 // ==========================================
-// DATABASE CONNECTION
+// DATABASE CONNECTIONS
 // ==========================================
 const MONGO_URL = process.env.MONGO_URL || 'mongodb://localhost:27017/orange-chaos-slot';
 mongoose.connect(MONGO_URL)
