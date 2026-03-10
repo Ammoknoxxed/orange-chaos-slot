@@ -51,21 +51,24 @@ const UserBalance = mongoose.model('UserBalance', UserBalanceSchema);
 const SpinHistory = mongoose.model('SpinHistory', SpinHistorySchema);
 
 // ==========================================
-// SESSION CONFIGURATION
+// SESSION CONFIGURATION (FIXED FOR PRODUCTION)
 // ==========================================
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'chaos-orange-secret-key',
+    secret: process.env.SESSION_SECRET || 'chaos-orange-secret-key-change-this',
     resave: false,
     saveUninitialized: false,
     store: MongoStore.create({
         mongoUrl: MONGO_URL,
-        collectionName: 'sessions'
+        collectionName: 'sessions',
+        touchAfter: 24 * 3600 // Lazy session update
     }),
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' ? true : false,
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    }
+    },
+    name: 'sessionId'
 }));
 
 // ==========================================
@@ -178,8 +181,16 @@ function applyGravity(grid, symbolsToRemove) {
 // ROUTES
 // ==========================================
 
-// Home page
+// Home page - redirect to login or game
 app.get('/', (req, res) => {
+    if (req.session.userId) {
+        return res.redirect('/game');
+    }
+    res.render('login');
+});
+
+// Login page
+app.get('/login', (req, res) => {
     if (req.session.userId) {
         return res.redirect('/game');
     }
@@ -190,13 +201,17 @@ app.get('/', (req, res) => {
 app.get('/game', requireAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
-        res.render('slot', { user: user || { balance: 0, username: 'Guest' } });
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        res.render('slot', { user: user });
     } catch (e) {
+        console.error(e);
         res.status(500).send('Error loading game');
     }
 });
 
-// Login
+// Login endpoint
 app.post('/login', async (req, res) => {
     try {
         const { username } = req.body;
@@ -213,19 +228,36 @@ app.post('/login', async (req, res) => {
                 username,
                 balance: 1000
             });
+            console.log(`✅ New user created: ${username}`);
+        } else {
+            console.log(`✅ User logged in: ${username}`);
         }
 
+        // Set session
         req.session.userId = userId;
         req.session.username = username;
-        res.json({ success: true, redirect: '/game' });
+        
+        // Save session explicitly
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ error: 'Session error' });
+            }
+            res.json({ success: true, redirect: '/game' });
+        });
+
     } catch (e) {
+        console.error('Login error:', e);
         res.status(500).json({ error: 'Login failed' });
     }
 });
 
 // Logout
 app.get('/logout', (req, res) => {
-    req.session.destroy(() => {
+    req.session.destroy((err) => {
+        if (err) {
+            return res.status(500).send('Logout failed');
+        }
         res.redirect('/');
     });
 });
