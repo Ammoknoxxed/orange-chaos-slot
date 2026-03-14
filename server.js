@@ -26,7 +26,7 @@ mongoose.connect(MONGO_URL)
 const UserBalanceSchema = new mongoose.Schema({
     userId: { type: String, unique: true, required: true },
     username: String,
-    role: { type: String, default: 'user', enum: ['user', 'mod'] }, // NEU: Rolle
+    role: { type: String, default: 'user', enum: ['user', 'mod'] }, 
     balance: { type: Number, default: 1000 },
     totalWins: { type: Number, default: 0 },
     totalBets: { type: Number, default: 0 },
@@ -66,7 +66,7 @@ app.use(session({
         touchAfter: 24 * 3600
     }),
     cookie: {
-        secure: process.env.NODE_ENV === 'production' ? true : false,
+        secure: 'auto', // Passt sich automatisch an (funktioniert auf localhost & server besser)
         httpOnly: true,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
@@ -75,9 +75,19 @@ app.use(session({
 }));
 
 // ==========================================
-// MIDDLEWARE
+// MIDDLEWARE (NEU AUFGETEILT FÜR BESSERES UX)
 // ==========================================
-const requireAuth = (req, res, next) => {
+
+// Leitet im Browser direkt zum Login, statt nur Text anzuzeigen
+const requirePageAuth = (req, res, next) => {
+    if (!req.session.userId) {
+        return res.redirect('/login');
+    }
+    next();
+};
+
+// Gibt Fehler für Background-Requests (Spins etc.) aus
+const requireApiAuth = (req, res, next) => {
     if (!req.session.userId) {
         return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -85,7 +95,8 @@ const requireAuth = (req, res, next) => {
 };
 
 const requireMod = (req, res, next) => {
-    if (!req.session.userId || req.session.role !== 'mod') {
+    if (!req.session.userId) return res.redirect('/login');
+    if (req.session.role !== 'mod') {
         return res.status(403).send('Zutritt verweigert: Nur für Moderatoren.');
     }
     next();
@@ -201,11 +212,11 @@ app.get('/login', (req, res) => {
     res.render('login');
 });
 
-// MOD: Game page - Pass role to frontend
-app.get('/game', requireAuth, async (req, res) => {
+// MOD: Game page - Pass role to frontend (ACHTUNG: Nutzt jetzt requirePageAuth)
+app.get('/game', requirePageAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
-        if (!user) return res.status(404).json({ error: 'User not found' });
+        if (!user) return res.redirect('/logout'); // Wenn User in DB fehlt, ausloggen
         
         res.render('slot', { user: user, role: req.session.role });
     } catch (e) {
@@ -214,7 +225,6 @@ app.get('/game', requireAuth, async (req, res) => {
     }
 });
 
-// MOD: Login endpoint - Assign roles based on .env
 app.post('/login', async (req, res) => {
     try {
         const { username } = req.body;
@@ -224,7 +234,6 @@ app.post('/login', async (req, res) => {
 
         const userId = username.toLowerCase().replace(/[^a-z0-9]/g, '');
         
-        // Check Mod Status
         const modUsers = (process.env.MOD_USERS || '').toLowerCase().split(',');
         const assignedRole = modUsers.includes(userId) ? 'mod' : 'user';
 
@@ -246,7 +255,6 @@ app.post('/login', async (req, res) => {
             console.log(`✅ User logged in: ${username} (Role: ${user.role})`);
         }
 
-        // Set session
         req.session.userId = userId;
         req.session.username = username;
         req.session.role = user.role;
@@ -299,7 +307,7 @@ app.post('/mod/add-balance', requireMod, async (req, res) => {
 // API ROUTES
 // ==========================================
 
-app.get('/api/balance', requireAuth, async (req, res) => {
+app.get('/api/balance', requireApiAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
         res.json({ balance: user?.balance || 0 });
@@ -308,7 +316,7 @@ app.get('/api/balance', requireAuth, async (req, res) => {
     }
 });
 
-app.post('/api/spin', requireAuth, async (req, res) => {
+app.post('/api/spin', requireApiAuth, async (req, res) => {
     try {
         const { buyFeature, bet } = req.body;
         const betAmount = Math.max(0.1, Math.min(100, parseFloat(bet) || 1));
@@ -458,7 +466,8 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-app.get('/api/stats', requireAuth, async (req, res) => {
+// Stats nutzen nun requirePageAuth (damit man nicht nur JSON sieht, wenn man nicht eingeloggt ist)
+app.get('/api/stats', requirePageAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
         const history = await SpinHistory.find({ userId: req.session.userId })
