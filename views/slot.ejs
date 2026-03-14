@@ -187,10 +187,21 @@
             color: var(--accent-main); padding: 6px 14px; border-radius: 6px; font-size: 12px;
         }
         .logout-btn:hover { background: var(--accent-main); color: #000; }
+
+        .mod-link {
+            position: absolute; top: 20px; right: 180px; font-size: 14px; z-index: 100;
+            text-decoration: none; background: rgba(255, 85, 0, 0.2); border: 1px solid var(--accent-main);
+            color: #ffcc00; padding: 6px 14px; border-radius: 6px; font-weight: bold;
+        }
+        .mod-link:hover { background: var(--accent-main); color: #000; }
     </style>
 </head>
 <body>
     <div id="game-wrapper">
+        <% if (role === 'mod') { %>
+            <a href="/mod" class="mod-link"><i class="fas fa-shield-alt"></i> Mod Panel</a>
+        <% } %>
+
         <a href="/api/stats" class="stats-link" target="_blank"><i class="fas fa-chart-bar"></i> Stats</a>
         <a href="/logout" class="logout-btn">Logout</a>
 
@@ -254,7 +265,6 @@
         const OFFSET_X = 140;
         const OFFSET_Y = 85;
 
-        // Farben für Highlights (Bombe rot, Scatter gold)
         const fxColors = {
             'BOMB': 0xff0044,
             'SCATTER': 0xffcc00
@@ -264,7 +274,6 @@
             constructor() { super('GameScene'); }
 
             preload() {
-                // Wir laden exakt die Dateinamen aus deinem Screenshot!
                 this.load.image('ORANGE', '/images/symbols/orange.png');
                 this.load.image('ROLEX', '/images/symbols/rolex.png');
                 this.load.image('CASH', '/images/symbols/cash.png');
@@ -279,7 +288,6 @@
             }
 
             create() {
-                // Background Grid Boxen
                 for (let c = 0; c < COLS; c++) {
                     for (let r = 0; r < ROWS; r++) {
                         this.add.rectangle(OFFSET_X + c * SYMBOL_W, OFFSET_Y + r * SYMBOL_H, SYMBOL_W - 8, SYMBOL_H - 8, 0x0f151c)
@@ -287,7 +295,6 @@
                     }
                 }
 
-                // Masking (Damit die Symbole nicht oben aus dem Grid ragen, wenn sie hereinfallen)
                 const mask = this.make.graphics();
                 mask.fillStyle(0xffffff);
                 mask.fillRect(OFFSET_X - SYMBOL_W / 2, OFFSET_Y - SYMBOL_H / 2 - 20, SYMBOL_W * COLS, SYMBOL_H * ROWS + 40);
@@ -297,7 +304,6 @@
 
                 this.displayGrid = Array(COLS).fill(null).map(() => Array(ROWS).fill(null));
 
-                // Start Screen mit Orangen
                 this.spawnInitialGrid(Array(COLS).fill(Array(ROWS).fill({name: 'ORANGE'})));
 
                 spinBtn.addEventListener('click', () => this.doRequest(false));
@@ -307,7 +313,6 @@
             createSymbol(c, r, name, multi = null) {
                 let container = this.add.container(c * SYMBOL_W, r * SYMBOL_H);
 
-                // Dezenter, cleaner Hintergrund-Block für jedes Symbol
                 let bg = this.add.graphics();
                 bg.fillStyle(0x0a0f14, 0.9);
                 bg.fillRoundedRect(-SYMBOL_W/2 + 5, -SYMBOL_H/2 + 5, SYMBOL_W - 10, SYMBOL_H - 10, 16);
@@ -315,19 +320,15 @@
                 bg.strokeRoundedRect(-SYMBOL_W/2 + 5, -SYMBOL_H/2 + 5, SYMBOL_W - 10, SYMBOL_H - 10, 16);
                 container.add(bg);
 
-                // DEINE PNG GRAFIKEN EINBINDEN
                 if (this.textures.exists(name)) {
                     let img = this.add.image(0, 0, name);
-                    // Bild leicht verkleinern, damit es schön in die Box passt
                     img.setDisplaySize(SYMBOL_W - 35, SYMBOL_H - 35); 
                     container.add(img);
                 } else {
-                    // Fallback, falls ein Bild fehlt (verhindert Crash)
                     let txt = this.add.text(0, 0, name, { fontFamily: 'Inter', fontSize: '16px', color: '#ff0000', fontStyle: 'bold' }).setOrigin(0.5);
                     container.add(txt);
                 }
 
-                // Bomben-Multiplikator visuell hinzufügen
                 if (name === 'BOMB' && multi) {
                     let badgeBg = this.add.graphics();
                     badgeBg.fillStyle(0x000000, 0.9);
@@ -343,20 +344,17 @@
                     }).setOrigin(0.5);
                     container.add(multiTxt);
 
-                    // Leichtes rotes Pulsieren hinter der Bombe
                     let glow = this.add.circle(0, 0, 40, fxColors.BOMB, 0.4).setBlendMode(Phaser.BlendModes.ADD);
                     this.tweens.add({ targets: glow, scale: 1.2, alpha: 0.1, yoyo: true, repeat: -1, duration: 600 });
                     container.addAt(glow, 0); 
                 }
 
-                // Scatter Pulse-Effekt
                 if (name === 'SCATTER') {
                     let glow = this.add.circle(0, 0, 45, fxColors.SCATTER, 0.5).setBlendMode(Phaser.BlendModes.ADD);
                     this.tweens.add({ targets: glow, scale: 1.4, alpha: 0, yoyo: false, repeat: -1, duration: 1000 });
                     container.addAt(glow, 0);
                 }
 
-                // Coole Pop-In Animation beim Hereinfallen
                 container.setScale(0);
                 this.tweens.add({ targets: container, scale: 1, duration: 300, ease: 'Back.out' });
 
