@@ -26,6 +26,7 @@ mongoose.connect(MONGO_URL)
 const UserBalanceSchema = new mongoose.Schema({
     userId: { type: String, unique: true, required: true },
     username: String,
+    role: { type: String, default: 'user', enum: ['user', 'mod'] }, // NEU: Rolle
     balance: { type: Number, default: 1000 },
     totalWins: { type: Number, default: 0 },
     totalBets: { type: Number, default: 0 },
@@ -51,10 +52,8 @@ const UserBalance = mongoose.model('UserBalance', UserBalanceSchema);
 const SpinHistory = mongoose.model('SpinHistory', SpinHistorySchema);
 
 // ==========================================
-// SESSION CONFIGURATION (FIXED FOR PRODUCTION)
+// SESSION CONFIGURATION
 // ==========================================
-
-// 🔥 FIX: WICHTIG! Damit Express das Secure-Cookie hinter einem Proxy (Railway, Heroku etc.) sendet:
 app.set('trust proxy', 1);
 
 app.use(session({
@@ -64,7 +63,7 @@ app.use(session({
     store: MongoStore.create({
         mongoUrl: MONGO_URL,
         collectionName: 'sessions',
-        touchAfter: 24 * 3600 // Lazy session update
+        touchAfter: 24 * 3600
     }),
     cookie: {
         secure: process.env.NODE_ENV === 'production' ? true : false,
@@ -81,6 +80,13 @@ app.use(session({
 const requireAuth = (req, res, next) => {
     if (!req.session.userId) {
         return res.status(401).json({ error: 'Not authenticated' });
+    }
+    next();
+};
+
+const requireMod = (req, res, next) => {
+    if (!req.session.userId || req.session.role !== 'mod') {
+        return res.status(403).send('Zutritt verweigert: Nur für Moderatoren.');
     }
     next();
 };
@@ -185,37 +191,30 @@ function applyGravity(grid, symbolsToRemove) {
 // ROUTES
 // ==========================================
 
-// Home page - redirect to login or game
 app.get('/', (req, res) => {
-    if (req.session.userId) {
-        return res.redirect('/game');
-    }
+    if (req.session.userId) return res.redirect('/game');
     res.render('login');
 });
 
-// Login page
 app.get('/login', (req, res) => {
-    if (req.session.userId) {
-        return res.redirect('/game');
-    }
+    if (req.session.userId) return res.redirect('/game');
     res.render('login');
 });
 
-// Game page
+// MOD: Game page - Pass role to frontend
 app.get('/game', requireAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
-        if (!user) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        res.render('slot', { user: user });
+        if (!user) return res.status(404).json({ error: 'User not found' });
+        
+        res.render('slot', { user: user, role: req.session.role });
     } catch (e) {
         console.error(e);
         res.status(500).send('Error loading game');
     }
 });
 
-// Login endpoint
+// MOD: Login endpoint - Assign roles based on .env
 app.post('/login', async (req, res) => {
     try {
         const { username } = req.body;
@@ -224,29 +223,36 @@ app.post('/login', async (req, res) => {
         }
 
         const userId = username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        
+        // Check Mod Status
+        const modUsers = (process.env.MOD_USERS || '').toLowerCase().split(',');
+        const assignedRole = modUsers.includes(userId) ? 'mod' : 'user';
+
         let user = await UserBalance.findOne({ userId });
 
         if (!user) {
             user = await UserBalance.create({
                 userId,
                 username,
+                role: assignedRole,
                 balance: 1000
             });
-            console.log(`✅ New user created: ${username}`);
+            console.log(`✅ New user created: ${username} (Role: ${assignedRole})`);
         } else {
-            console.log(`✅ User logged in: ${username}`);
+            if (user.role !== assignedRole) {
+                user.role = assignedRole;
+                await user.save();
+            }
+            console.log(`✅ User logged in: ${username} (Role: ${user.role})`);
         }
 
         // Set session
         req.session.userId = userId;
         req.session.username = username;
+        req.session.role = user.role;
         
-        // Save session explicitly
         req.session.save((err) => {
-            if (err) {
-                console.error('Session save error:', err);
-                return res.status(500).json({ error: 'Session error' });
-            }
+            if (err) return res.status(500).json({ error: 'Session error' });
             res.json({ success: true, redirect: '/game' });
         });
 
@@ -256,17 +262,43 @@ app.post('/login', async (req, res) => {
     }
 });
 
-// Logout
 app.get('/logout', (req, res) => {
     req.session.destroy((err) => {
-        if (err) {
-            return res.status(500).send('Logout failed');
-        }
+        if (err) return res.status(500).send('Logout failed');
         res.redirect('/');
     });
 });
 
-// Get user balance
+// ==========================================
+// MODERATOR ROUTES
+// ==========================================
+
+app.get('/mod', requireMod, async (req, res) => {
+    try {
+        const users = await UserBalance.find().sort({ balance: -1 });
+        res.render('mod', { users: users, currentUser: req.session.username });
+    } catch (e) {
+        res.status(500).send('Fehler beim Laden des Mod-Panels');
+    }
+});
+
+app.post('/mod/add-balance', requireMod, async (req, res) => {
+    try {
+        const { targetUserId, amount } = req.body;
+        await UserBalance.findOneAndUpdate(
+            { userId: targetUserId }, 
+            { $inc: { balance: Number(amount) } }
+        );
+        res.redirect('/mod');
+    } catch (e) {
+        res.status(500).send('Fehler beim Aufladen');
+    }
+});
+
+// ==========================================
+// API ROUTES
+// ==========================================
+
 app.get('/api/balance', requireAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
@@ -276,42 +308,24 @@ app.get('/api/balance', requireAuth, async (req, res) => {
     }
 });
 
-// Main spin endpoint
 app.post('/api/spin', requireAuth, async (req, res) => {
     try {
         const { buyFeature, bet } = req.body;
         const betAmount = Math.max(0.1, Math.min(100, parseFloat(bet) || 1));
         const cost = buyFeature ? betAmount * 100 : betAmount;
 
-        // Get user
         let user = await UserBalance.findOne({ userId: req.session.userId });
-        if (!user) {
-            return res.status(400).json({ error: 'User not found' });
-        }
+        if (!user) return res.status(400).json({ error: 'User not found' });
+        if (user.balance < cost) return res.json({ error: 'Insufficient balance' });
 
-        // Check balance
-        if (user.balance < cost) {
-            return res.json({ error: 'Insufficient balance' });
-        }
-
-        // Deduct bet
         user.balance -= cost;
         user.totalBets += cost;
         user.totalSpins += 1;
         user.lastSpinAt = new Date();
 
-        // Initialize game state
-        let gameState = {
-            mode: 'BASE',
-            freeSpinsLeft: 0,
-            totalBonusWin: 0,
-            globalMultiplier: 0
-        };
-
-        // Generate grid
+        let gameState = { mode: 'BASE', freeSpinsLeft: 0, totalBonusWin: 0, globalMultiplier: 0 };
         let grid = generateGrid();
 
-        // Feature buy = guaranteed 4 scatters
         if (buyFeature) {
             let scCols = [0, 1, 2, 3, 4, 5].sort(() => 0.5 - Math.random()).slice(0, 4);
             scCols.forEach(c => grid[c][Math.floor(Math.random() * ROWS)] = { name: 'SCATTER' });
@@ -319,7 +333,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             gameState.freeSpinsLeft = 15;
         }
 
-        // Count initial scatters
         let initialScatters = 0;
         for (let c = 0; c < COLS; c++) {
             for (let r = 0; r < ROWS; r++) {
@@ -327,7 +340,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             }
         }
 
-        // Cascade loop
         let cascades = [];
         let cascadeActive = true;
         let totalBaseWin = 0;
@@ -352,7 +364,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             }
         }
 
-        // Calculate bomb multipliers
         let finalGrid = cascades[cascades.length - 1].grid;
         let stepBombs = [];
         let totalBombMulti = 0;
@@ -366,7 +377,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             }
         }
 
-        // Calculate final win
         let finalSpinWin = totalBaseWin;
         if (totalBaseWin > 0) {
             if (gameState.mode === 'FREE_SPINS') {
@@ -377,12 +387,10 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             }
         }
 
-        // Apply winnings
         user.balance += finalSpinWin;
         user.totalWins += finalSpinWin;
         if (finalSpinWin > user.biggestWin) user.biggestWin = finalSpinWin;
 
-        // Check for bonus trigger
         let triggeredBonus = false;
         if (gameState.mode === 'BASE' && initialScatters >= 4) {
             gameState.mode = 'FREE_SPINS';
@@ -392,12 +400,10 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             triggeredBonus = true;
         }
 
-        // Retrigger free spins
         if (gameState.mode === 'FREE_SPINS' && initialScatters >= 3 && !triggeredBonus && !buyFeature) {
             gameState.freeSpinsLeft += 5;
         }
 
-        // Decrement free spins
         let nextAction = 'SPIN';
         if (gameState.mode === 'FREE_SPINS' && !triggeredBonus && !buyFeature) {
             gameState.freeSpinsLeft--;
@@ -407,7 +413,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             }
         }
 
-        // Save spin history
         await SpinHistory.create({
             userId: req.session.userId,
             username: req.session.username,
@@ -419,7 +424,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
             freeSpinsTriggered: triggeredBonus
         });
 
-        // Save user
         await user.save();
 
         res.json({
@@ -442,7 +446,6 @@ app.post('/api/spin', requireAuth, async (req, res) => {
     }
 });
 
-// Leaderboard
 app.get('/api/leaderboard', async (req, res) => {
     try {
         const top = await UserBalance.find()
@@ -455,7 +458,6 @@ app.get('/api/leaderboard', async (req, res) => {
     }
 });
 
-// User stats
 app.get('/api/stats', requireAuth, async (req, res) => {
     try {
         const user = await UserBalance.findOne({ userId: req.session.userId });
@@ -480,9 +482,6 @@ app.get('/api/stats', requireAuth, async (req, res) => {
     }
 });
 
-// ==========================================
-// START SERVER
-// ==========================================
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
     console.log(`🍊 CHAOS CASCADES running on http://localhost:${PORT}`);
