@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Mod Panel | Chaos Orange</title>
+    <style>
+        body { background: #050a0f; color: #fff; font-family: 'Inter', sans-serif; padding: 40px; }
+        .container { max-width: 1000px; margin: 0 auto; background: rgba(11, 19, 26, 0.95); padding: 30px; border-radius: 15px; border: 1px solid #ff5500; }
+        h1 { color: #ff5500; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #333; }
+        th { color: #8a9ba8; text-transform: uppercase; font-size: 12px; }
+        .btn { background: #00e701; color: #000; border: none; padding: 8px 15px; font-weight: bold; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #00b300; }
+        input[type="number"] { padding: 6px; border-radius: 4px; border: 1px solid #555; background: #222; color: #fff; width: 100px; }
+        .back-link { color: #8a9ba8; text-decoration: none; margin-bottom: 20px; display: inline-block; }
+        .back-link:hover { color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/game" class="back-link">← Zurück zum Spiel</a>
+        <h1>Mod Panel - Willkommen <%= currentUser %></h1>
+        
+        <table>
+            <thead>
+                <tr>
+                    <th>Username</th>
+                    <th>Rolle</th>
+                    <th>Balance</th>
+                    <th>Spins</th>
+                    <th>Aktion (Guthaben hinzufügen)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <% users.forEach(u => { %>
+                    <tr>
+                        <td><strong><%= u.username %></strong></td>
+                        <td><%= u.role %></td>
+                        <td style="color: #00e701;"><%= u.balance.toFixed(2) %>€</td>
+                        <td><%= u.totalSpins %></td>
+                        <td>
+                            <form action="/mod/add-balance" method="POST" style="display: flex; gap: 10px;">
+                                <input type="hidden" name="targetUserId" value="<%= u.userId %>">
+                                <input type="number" name="amount" placeholder="+ Betrag" required>
+                                <button type="submit" class="btn">Geben</button>
+                            </form>
+                        </td>
+                    </tr>
+                <% }) %>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
